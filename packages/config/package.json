@@ -1,0 +1,25 @@
+{
+  "name": "@makayeel/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./tsconfig/next.json": "./tsconfig/next.json",
+    "./tsconfig/node.json": "./tsconfig/node.json",
+    "./eslint/base": "./eslint/base.js",
+    "./eslint/next": "./eslint/next.js",
+    "./eslint/node": "./eslint/node.js",
+    "./tailwind/preset": "./tailwind/preset.js"
+  },
+  "scripts": {
+    "lint": "echo 'no lint in config package'",
+    "typecheck": "echo 'no typecheck in config package'",
+    "test": "echo 'no tests'",
+    "build": "echo 'no build'",
+    "clean": "rm -rf node_modules .turbo"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

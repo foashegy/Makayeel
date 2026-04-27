@@ -1,0 +1,40 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Preview (static HTML mockup)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dlx", "serve", "preview", "-l", "4173"],
+      "port": 4173
+    },
+    {
+      "name": "All apps (turbo dev)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "port": 3000
+    },
+    {
+      "name": "Web (Next.js) — apps/web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@makayeel/web", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "Bot (Telegram grammY, polling) — apps/bot",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@makayeel/bot", "dev"]
+    },
+    {
+      "name": "Prisma Studio",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["db:studio"],
+      "port": 5555
+    },
+    {
+      "name": "Postgres (docker-compose)",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "postgres"],
+      "port": 5432
+    }
+  ]
+}

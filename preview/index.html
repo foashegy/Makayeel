@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>مكاييل — سعر يومك من الحقل</title>
+    <meta
+      name="description"
+      content="منصة مكاييل: أسعار خامات الأعلاف اليومية في السوق المصري — موثوقة، محدثة، ومربوطة بتليجرام."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --wheat-gold: #d4a24c;
+        --deep-navy: #1a2e40;
+        --harvest-green: #6ba368;
+        --cream: #f5efe0;
+        --charcoal: #2a2a2a;
+        --paper-white: #fafaf5;
+        --alert-red: #c44545;
+        --brand-50: #fbf6ec;
+        --brand-100: #f5e9cc;
+        --navy-200: #8fa0b3;
+        --navy-600: #152535;
+        --radius: 1rem;
+        --shadow-card: 0 1px 2px rgba(26, 46, 64, 0.04),
+          0 4px 12px rgba(26, 46, 64, 0.05);
+        --shadow-card-hover: 0 4px 8px rgba(26, 46, 64, 0.08),
+          0 8px 24px rgba(26, 46, 64, 0.08);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        background: var(--paper-white);
+        color: var(--charcoal);
+        font-family: 'Tajawal', system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        line-height: 1.6;
+        scroll-behavior: smooth;
+      }
+
+      .latin {
+        font-family: 'Inter', system-ui, sans-serif;
+        direction: ltr;
+      }
+      .mono {
+        font-family: 'JetBrains Mono', monospace;
+        font-variant-numeric: tabular-nums;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      button {
+        font-family: inherit;
+        cursor: pointer;
+        border: none;
+        background: none;
+      }
+
+      .container {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+      }
+
+      /* ── Nav ─────────────────────────────────────────── */
+      nav {
+        padding: 1.25rem 0;
+        border-bottom: 1px solid rgba(26, 46, 64, 0.08);
+        background: var(--paper-white);
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        backdrop-filter: blur(8px);
+      }
+      .nav-wrap {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .brand-mark {
+        width: 40px;
+        height: 40px;
+      }
+      .brand-text {
+        display: flex;
+        flex-direction: column;
+        line-height: 1;
+      }
+      .brand-ar {
+        font-weight: 500;
+        font-size: 1.375rem;
+        color: var(--deep-navy);
+      }
+      .brand-en {
+        font-family: 'Inter', sans-serif;
+        letter-spacing: 7px;
+        font-size: 0.6875rem;
+        color: var(--wheat-gold);
+        margin-top: 2px;
+      }
+      .nav-links {
+        display: flex;
+        gap: 2rem;
+        align-items: center;
+      }
+      .nav-links a {
+        color: var(--deep-navy);
+        font-weight: 500;
+        font-size: 0.95rem;
+        opacity: 0.85;
+        transition: opacity 0.15s;
+      }
+      .nav-links a:hover {
+        opacity: 1;
+      }
+      .lang-btn {
+        padding: 0.35rem 0.75rem;
+        border: 1px solid rgba(26, 46, 64, 0.15);
+        border-radius: 6px;
+        font-size: 0.85rem;
+        color: var(--deep-navy);
+      }
+      .btn-primary {
+        background: var(--wheat-gold);
+        color: var(--deep-navy);
+        padding: 0.625rem 1.25rem;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.95rem;
+        transition: transform 0.1s, box-shadow 0.15s;
+      }
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(212, 162, 76, 0.3);
+      }
+
+      /* ── Hero ────────────────────────────────────────── */
+      .hero {
+        padding: 5rem 0 4rem;
+        background: linear-gradient(180deg, var(--cream) 0%, var(--paper-white) 100%);
+        position: relative;
+        overflow: hidden;
+      }
+      .hero-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 3rem;
+        align-items: center;
+      }
+      .hero h1 {
+        font-size: clamp(2.25rem, 5vw, 3.75rem);
+        font-weight: 700;
+        color: var(--deep-navy);
+        line-height: 1.15;
+        margin-bottom: 1.25rem;
+      }
+      .hero h1 .accent {
+        color: var(--wheat-gold);
+      }
+      .hero .lead {
+        font-size: 1.15rem;
+        color: rgba(42, 42, 42, 0.8);
+        margin-bottom: 2rem;
+        max-width: 38em;
+      }
+      .hero .cta-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .btn-ghost {
+        padding: 0.625rem 1.25rem;
+        border: 1px solid rgba(26, 46, 64, 0.2);
+        border-radius: 8px;
+        font-weight: 500;
+        color: var(--deep-navy);
+        transition: background 0.15s;
+      }
+      .btn-ghost:hover {
+        background: rgba(26, 46, 64, 0.04);
+      }
+      .trust-row {
+        margin-top: 3rem;
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+        font-size: 0.9rem;
+        color: rgba(42, 42, 42, 0.65);
+      }
+      .trust-row span::before {
+        content: '✓';
+        color: var(--harvest-green);
+        margin-inline-end: 0.5rem;
+        font-weight: 700;
+      }
+
+      /* ── Today's prices widget ───────────────────────── */
+      .price-widget {
+        background: white;
+        border: 1px solid rgba(26, 46, 64, 0.08);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-card);
+      }
+      .widget-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 1.25rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(26, 46, 64, 0.08);
+      }
+      .widget-head h3 {
+        font-size: 1.05rem;
+        color: var(--deep-navy);
+        font-weight: 500;
+      }
+      .widget-head .stamp {
+        font-size: 0.8rem;
+        color: var(--navy-200);
+      }
+      .price-row {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px dashed rgba(26, 46, 64, 0.06);
+      }
+      .price-row:last-child {
+        border-bottom: none;
+      }
+      .price-name {
+        font-weight: 500;
+        color: var(--deep-navy);
+        font-size: 0.98rem;
+      }
+      .price-name small {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--navy-200);
+        font-weight: 400;
+        margin-top: 2px;
+      }
+      .price-value {
+        font-family: 'JetBrains Mono', monospace;
+        font-variant-numeric: tabular-nums;
+        font-weight: 500;
+        font-size: 1rem;
+        color: var(--charcoal);
+        direction: ltr;
+      }
+      .delta {
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+        min-width: 4.5rem;
+        text-align: center;
+        direction: ltr;
+      }
+      .delta.up {
+        background: rgba(107, 163, 104, 0.12);
+        color: var(--harvest-green);
+      }
+      .delta.down {
+        background: rgba(196, 69, 69, 0.1);
+        color: var(--alert-red);
+      }
+      .delta.flat {
+        background: rgba(26, 46, 64, 0.06);
+        color: var(--navy-200);
+      }
+
+      /* ── Features ────────────────────────────────────── */
+      section.features {
+        padding: 5rem 0;
+      }
+      .section-kicker {
+        color: var(--wheat-gold);
+        font-weight: 600;
+        font-size: 0.85rem;
+        letter-spacing: 2px;
+        margin-bottom: 0.75rem;
+        text-transform: uppercase;
+      }
+      .section-title {
+        font-size: clamp(1.75rem, 3vw, 2.5rem);
+        color: var(--deep-navy);
+        font-weight: 500;
+        margin-bottom: 1rem;
+        line-height: 1.25;
+      }
+      .section-lead {
+        color: rgba(42, 42, 42, 0.75);
+        font-size: 1.05rem;
+        max-width: 40em;
+        margin-bottom: 3rem;
+      }
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.5rem;
+      }
+      .feature {
+        background: white;
+        border: 1px solid rgba(26, 46, 64, 0.08);
+        border-radius: var(--radius);
+        padding: 1.75rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .feature:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-card-hover);
+      }
+      .feature-icon {
+        width: 42px;
+        height: 42px;
+        background: var(--brand-50);
+        color: var(--wheat-gold);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+      }
+      .feature h4 {
+        color: var(--deep-navy);
+        font-weight: 500;
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+      }
+      .feature p {
+        color: rgba(42, 42, 42, 0.72);
+        font-size: 0.95rem;
+      }
+
+      /* ── Pricing teaser ──────────────────────────────── */
+      section.pricing {
+        padding: 5rem 0;
+        background: var(--cream);
+      }
+      .pricing-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+      }
+      .tier {
+        background: white;
+        border: 1px solid rgba(26, 46, 64, 0.08);
+        border-radius: var(--radius);
+        padding: 2rem;
+        position: relative;
+      }
+      .tier.highlight {
+        border: 2px solid var(--wheat-gold);
+        transform: scale(1.02);
+      }
+      .tier-badge {
+        position: absolute;
+        top: -12px;
+        inset-inline-start: 1.5rem;
+        background: var(--wheat-gold);
+        color: var(--deep-navy);
+        padding: 0.2rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+      .tier h4 {
+        color: var(--deep-navy);
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+      .tier .price-tag {
+        font-size: 2.25rem;
+        color: var(--deep-navy);
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+      }
+      .tier .price-tag .per {
+        font-size: 1rem;
+        color: var(--navy-200);
+        font-weight: 400;
+      }
+      .tier ul {
+        list-style: none;
+        margin: 1.5rem 0;
+      }
+      .tier li {
+        padding: 0.4rem 0;
+        font-size: 0.95rem;
+        color: rgba(42, 42, 42, 0.8);
+      }
+      .tier li::before {
+        content: '✓';
+        color: var(--harvest-green);
+        font-weight: 700;
+        margin-inline-end: 0.5rem;
+      }
+
+      /* ── Footer CTA ──────────────────────────────────── */
+      section.cta {
+        background: var(--deep-navy);
+        padding: 4rem 0;
+        color: white;
+        text-align: center;
+      }
+      section.cta h2 {
+        font-size: clamp(1.75rem, 3vw, 2.5rem);
+        margin-bottom: 1rem;
+        font-weight: 500;
+      }
+      section.cta p {
+        opacity: 0.75;
+        margin-bottom: 2rem;
+        font-size: 1.05rem;
+      }
+      section.cta .btn-primary:hover {
+        box-shadow: 0 4px 16px rgba(212, 162, 76, 0.4);
+      }
+
+      footer {
+        padding: 2rem 0;
+        color: var(--navy-200);
+        font-size: 0.85rem;
+        text-align: center;
+        border-top: 1px solid rgba(26, 46, 64, 0.08);
+      }
+
+      /* ── Mobile ──────────────────────────────────────── */
+      @media (max-width: 820px) {
+        .hero-grid {
+          grid-template-columns: 1fr;
+        }
+        .nav-links a:not(.lang-btn):not(.btn-primary) {
+          display: none;
+        }
+        .pricing-grid {
+          grid-template-columns: 1fr;
+        }
+        .tier.highlight {
+          transform: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- NAV -->
+    <nav>
+      <div class="container nav-wrap">
+        <a href="/" class="brand">
+          <svg
+            class="brand-mark"
+            viewBox="0 0 48 48"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <!-- vertical stem (deep navy) -->
+            <rect x="22" y="4" width="4" height="40" rx="1" fill="#1A2E40" />
+            <!-- ascending grain bars (wheat gold), longest at bottom -->
+            <rect x="16" y="10" width="6" height="3" rx="1.5" fill="#D4A24C" />
+            <rect x="26" y="10" width="6" height="3" rx="1.5" fill="#D4A24C" />
+            <rect x="14" y="16" width="8" height="3" rx="1.5" fill="#D4A24C" />
+            <rect x="26" y="16" width="8" height="3" rx="1.5" fill="#D4A24C" />
+            <rect x="12" y="22" width="10" height="3" rx="1.5" fill="#D4A24C" />
+            <rect x="26" y="22" width="10" height="3" rx="1.5" fill="#D4A24C" />
+            <rect x="10" y="28" width="12" height="3" rx="1.5" fill="#D4A24C" />
+            <rect x="26" y="28" width="12" height="3" rx="1.5" fill="#D4A24C" />
+            <!-- bottom bar (harvest green) -->
+            <rect x="8" y="34" width="14" height="3" rx="1.5" fill="#6BA368" />
+            <rect x="26" y="34" width="14" height="3" rx="1.5" fill="#6BA368" />
+          </svg>
+          <span class="brand-text">
+            <span class="brand-ar">مكاييل</span>
+            <span class="brand-en">MAKAYEEL</span>
+          </span>
+        </a>
+        <div class="nav-links">
+          <a href="#prices">الأسعار</a>
+          <a href="#features">المنصة</a>
+          <a href="#pricing">الاشتراكات</a>
+          <a href="#" class="lang-btn">EN</a>
+          <a href="#" class="btn-primary">ادخل المنصة</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <div class="section-kicker">علف بالعدل — تجارة بالميزان الصح</div>
+          <h1>
+            سعر يومك <span class="accent">من الحقل.</span>
+          </h1>
+          <p class="lead">
+            أسعار خامات الأعلاف اليومية من موانئ الإسكندرية ودمياط وتجار الجملة —
+            موثوقة، ومحدّثة قبل ما تبدأ يومك. موقع، بوت تليجرام، و API واحد لكل
+            مصانع ومزارع مصر.
+          </p>
+          <div class="cta-row">
+            <a href="#prices" class="btn-primary">شوف أسعار النهاردة</a>
+            <a href="#" class="btn-ghost">جرّب البوت على تليجرام</a>
+          </div>
+          <div class="trust-row">
+            <span>٤ مصادر رسمية</span>
+            <span>٨ خامات رئيسية</span>
+            <span>تحديث يومي ٧ ص</span>
+            <span>تنبيهات فورية</span>
+          </div>
+        </div>
+
+        <!-- Today's prices widget -->
+        <aside class="price-widget" id="prices">
+          <div class="widget-head">
+            <h3>أسعار اليوم — الإسكندرية</h3>
+            <span class="stamp mono">٨:٣٢ ص</span>
+          </div>
+
+          <div class="price-row">
+            <div class="price-name">
+              ذرة صفراء
+              <small>Yellow Corn · جنيه/طن</small>
+            </div>
+            <div class="price-value">14,225</div>
+            <div class="delta up">▲ 1.2%</div>
+          </div>
+
+          <div class="price-row">
+            <div class="price-name">
+              كسب فول الصويا 46%
+              <small>Soybean Meal 46% · جنيه/طن</small>
+            </div>
+            <div class="price-value">29,500</div>
+            <div class="delta down">▼ 0.8%</div>
+          </div>
+
+          <div class="price-row">
+            <div class="price-name">
+              كسب فول الصويا 48%
+              <small>Soybean Meal 48% · جنيه/طن</small>
+            </div>
+            <div class="price-value">31,175</div>
+            <div class="delta up">▲ 0.4%</div>
+          </div>
+
+          <div class="price-row">
+            <div class="price-name">
+              نخالة قمح
+              <small>Wheat Bran · جنيه/طن</small>
+            </div>
+            <div class="price-value">8,200</div>
+            <div class="delta flat">— 0.0%</div>
+          </div>
+
+          <div class="price-row">
+            <div class="price-name">
+              شعير
+              <small>Barley · جنيه/طن</small>
+            </div>
+            <div class="price-value">12,425</div>
+            <div class="delta up">▲ 0.6%</div>
+          </div>
+
+          <div class="price-row">
+            <div class="price-name">
+              كسب عباد الشمس
+              <small>Sunflower Meal · جنيه/طن</small>
+            </div>
+            <div class="price-value">13,550</div>
+            <div class="delta down">▼ 1.1%</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="features" id="features">
+      <div class="container">
+        <div class="section-kicker">المنصة</div>
+        <h2 class="section-title">كل حاجة تحتاجها لتسعير يومك.</h2>
+        <p class="section-lead">
+          من لحظة فتحك التليفون الصبح، لبوت يجيب السعر في التشات، لـ API بيغذّي
+          نظامك الداخلي — كله من نفس المصدر، نفس التوقيت.
+        </p>
+        <div class="feature-grid">
+          <div class="feature">
+            <div class="feature-icon">📊</div>
+            <h4>أسعار حيّة</h4>
+            <p>
+              جدول يومي بأسعار ٨ خامات من ٤ مصادر، مقارنة بالأمس والأسبوع، و
+              رسوم تاريخية لحد سنة كاملة.
+            </p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🔔</div>
+            <h4>تنبيهات ذكية</h4>
+            <p>
+              عايز تعرف لما الذرة تعدي ١٤،٥٠٠؟ حدّد الحد، واختار إيميل أو
+              تليجرام، ومكاييل يصحّيك.
+            </p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🤖</div>
+            <h4>بوت تليجرام</h4>
+            <p>
+              <span class="mono">/سعر ذرة</span>
+              → تاخد السعر والتغيير والمصدر في تاني.
+              <span class="mono">/شارت ذرة ٣٠</span>
+              → تاخد الرسم جاهز.
+            </p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">⚡</div>
+            <h4>API للمصانع</h4>
+            <p>
+              مفتاح API خاص بنظامك. ٦٠ طلب/دقيقة. ربط مباشر مع ERP أو بورصتك
+              الخاصة.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRICING -->
+    <section class="pricing" id="pricing">
+      <div class="container">
+        <div class="section-kicker">الاشتراكات</div>
+        <h2 class="section-title">اختار اللي يناسب شغلك.</h2>
+        <p class="section-lead">
+          المجاني كفاية للمتابعة. Pro للتجار والمربّين. Enterprise للمصانع و
+          سلاسل الإمداد.
+        </p>
+        <div class="pricing-grid">
+          <div class="tier">
+            <h4>مجاني</h4>
+            <div class="price-tag">٠ <span class="per">جنيه</span></div>
+            <ul>
+              <li>أسعار اليوم + أمس</li>
+              <li>متابعة ٣ خامات</li>
+              <li>بوت تليجرام (محدود)</li>
+            </ul>
+            <a href="#" class="btn-ghost" style="width: 100%; display: block; text-align: center;"
+              >سجّل مجاني</a
+            >
+          </div>
+
+          <div class="tier highlight">
+            <span class="tier-badge">الأكثر طلبًا</span>
+            <h4>Pro</h4>
+            <div class="price-tag">
+              ١٤٩ <span class="per">جنيه/شهر</span>
+            </div>
+            <ul>
+              <li>كل مميزات المجاني</li>
+              <li>متابعة غير محدودة</li>
+              <li>تنبيهات إيميل + تليجرام</li>
+              <li>تاريخ الأسعار لحد سنة</li>
+              <li>٣ مفاتيح API</li>
+            </ul>
+            <a
+              href="#"
+              class="btn-primary"
+              style="width: 100%; display: block; text-align: center;"
+              >اشترك في Pro</a
+            >
+          </div>
+
+          <div class="tier">
+            <h4>Enterprise</h4>
+            <div class="price-tag">
+              <span class="per" style="font-size: 1.15rem;">تواصل معانا</span>
+            </div>
+            <ul>
+              <li>API بدون حدود</li>
+              <li>مصادر مخصصة</li>
+              <li>تقارير PDF يومية</li>
+              <li>دعم فني مخصص</li>
+            </ul>
+            <a href="#" class="btn-ghost" style="width: 100%; display: block; text-align: center;"
+              >احجز مكالمة</a
+            >
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+      <div class="container">
+        <h2>ابدأ يومك بسعر صح.</h2>
+        <p>انضم لأكتر من ١،٢٠٠ تاجر ومربي بيعتمدوا على مكاييل في قرارات يومية.</p>
+        <a href="#" class="btn-primary">سجّل مجانًا — ما يتطلبش بطاقة</a>
+      </div>
+    </section>
+
+    <footer>
+      <div class="container">
+        © ٢٠٢٦ مكاييل — منتج من <span class="latin">ATEN STUDIO</span>. كل الحقوق محفوظة.
+      </div>
+    </footer>
+  </body>
+</html>

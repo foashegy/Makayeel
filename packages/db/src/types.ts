@@ -1,0 +1,23 @@
+// Re-export Prisma generated types for convenient import by consumers.
+export type {
+  User,
+  Account,
+  Session,
+  Subscription,
+  Commodity,
+  Source,
+  Price,
+  Alert,
+  Watchlist,
+  BotLink,
+  BotLinkCode,
+  ApiKey,
+  WaitingList,
+  Role,
+  Locale,
+  Plan,
+  CommodityCategory,
+  SourceType,
+  AlertDirection,
+  AlertChannel,
+} from '@prisma/client';

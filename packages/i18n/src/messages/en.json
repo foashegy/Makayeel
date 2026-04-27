@@ -1,0 +1,227 @@
+{
+  "brand": {
+    "nameAr": "مكاييل",
+    "nameEn": "MAKAYEEL",
+    "tagline": "Fair feed — traded on the honest scale"
+  },
+  "nav": {
+    "prices": "Prices",
+    "platform": "Platform",
+    "pricing": "Plans",
+    "about": "About",
+    "login": "Log in",
+    "signup": "Sign up free",
+    "dashboard": "Dashboard",
+    "admin": "Admin",
+    "logout": "Log out"
+  },
+  "landing": {
+    "hero": {
+      "kicker": "Fair feed — traded on the honest scale",
+      "title": "Your day's price, from the field.",
+      "titleAccent": "from the field.",
+      "titleBase": "Your day's price,",
+      "subtitle": "Daily feed-grain prices from Alexandria & Damietta ports and major wholesalers — trusted, updated before your day starts. Web, Telegram bot, and API — one source for every mill and farm in Egypt.",
+      "ctaPrimary": "See today's prices",
+      "ctaSecondary": "Try the Telegram bot",
+      "trustSources": "4 official sources",
+      "trustCommodities": "8 core commodities",
+      "trustUpdate": "Daily 7 AM Cairo",
+      "trustAlerts": "Instant alerts"
+    },
+    "snapshotTitle": "Today's prices",
+    "features": {
+      "kicker": "Platform",
+      "title": "Everything you need to price your day.",
+      "lead": "From your morning phone check, to a bot that replies in-chat, to an API feeding your ERP — one source, one timestamp.",
+      "liveTitle": "Live prices",
+      "liveDesc": "Daily table of 8 commodities across 4 sources, compared to yesterday and last week, with charts up to one year back.",
+      "alertsTitle": "Smart alerts",
+      "alertsDesc": "Want to know when corn crosses 14,500? Set the threshold, pick email or Telegram — Makayeel wakes you.",
+      "botTitle": "Telegram bot",
+      "botDesc": "/price corn → price, delta, source in one tap. /chart corn 30 → chart image delivered.",
+      "apiTitle": "API for mills",
+      "apiDesc": "Private API key, 60 requests/minute, direct integration with your ERP or internal exchange."
+    },
+    "cta": {
+      "title": "Start your day with the right price.",
+      "subtitle": "Join 1,200+ traders and farmers already relying on Makayeel for daily decisions.",
+      "button": "Sign up free — no card required"
+    }
+  },
+  "prices": {
+    "pageTitle": "Today's feed-grain prices",
+    "pageLead": "Every commodity, every source — updated today.",
+    "table": {
+      "commodity": "Commodity",
+      "source": "Source",
+      "price": "Price",
+      "delta": "Δ",
+      "unit": "Unit",
+      "lastUpdated": "Last updated"
+    },
+    "filters": {
+      "all": "All",
+      "grains": "Grains",
+      "proteins": "Proteins",
+      "byproducts": "Byproducts",
+      "additives": "Additives",
+      "oils": "Oils"
+    },
+    "noData": "No prices available today."
+  },
+  "commodity": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "week": "Week",
+    "month": "Month",
+    "year": "Year",
+    "sourceBreakdown": "Price by source",
+    "related": "Related commodities",
+    "history7": "7 days",
+    "history30": "30 days",
+    "history90": "90 days",
+    "history365": "1 year"
+  },
+  "pricing": {
+    "kicker": "Plans",
+    "title": "Pick what fits your business.",
+    "lead": "Free for casual watchers. Pro for traders and farmers. Enterprise for mills and supply chains.",
+    "badgePopular": "Most popular",
+    "perMonth": "EGP/mo",
+    "contact": "Contact us",
+    "free": {
+      "name": "Free",
+      "price": "0",
+      "features": [
+        "Today + yesterday prices",
+        "Watch 3 commodities",
+        "Telegram bot (limited)"
+      ],
+      "cta": "Sign up free"
+    },
+    "pro": {
+      "name": "Pro",
+      "price": "149",
+      "features": [
+        "All Free features",
+        "Unlimited watchlist",
+        "Email + Telegram alerts",
+        "1-year price history",
+        "3 API keys"
+      ],
+      "cta": "Subscribe to Pro",
+      "waitlist": "Coming soon — leave your email and we'll notify you when Pro launches."
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "features": [
+        "Unlimited API",
+        "Custom sources",
+        "Daily PDF reports",
+        "Dedicated support"
+      ],
+      "cta": "Book a call"
+    }
+  },
+  "auth": {
+    "loginTitle": "Log in",
+    "loginLead": "Enter your email and we'll send a magic link.",
+    "signupTitle": "Create account",
+    "signupLead": "Free to sign up. One watchlist, unlimited alerts.",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "name@example.com",
+    "sendLink": "Send magic link",
+    "orContinueWith": "Or continue with",
+    "google": "Google",
+    "linkSentTitle": "Sent!",
+    "linkSentBody": "Check your inbox and click the link to sign in.",
+    "termsAccept": "By signing up, you agree to the Terms and Privacy Policy."
+  },
+  "dashboard": {
+    "welcome": "Welcome, {name}",
+    "watchlistTitle": "My watchlist",
+    "watchlistEmpty": "No commodities yet. Add one from the prices page.",
+    "alertsCount": "{count} active alerts",
+    "linkTelegramCta": "Link Telegram to receive alerts",
+    "telegramLinked": "Telegram linked: @{username}",
+    "unlinkTelegram": "Unlink Telegram"
+  },
+  "alerts": {
+    "pageTitle": "Price alerts",
+    "new": "New alert",
+    "selectCommodity": "Select commodity",
+    "thresholdLabel": "Price threshold (EGP/ton)",
+    "direction": "Direction",
+    "above": "Above",
+    "below": "Below",
+    "channel": "Channel",
+    "email": "Email",
+    "telegram": "Telegram",
+    "both": "Email + Telegram",
+    "save": "Save alert",
+    "delete": "Delete",
+    "activeBadge": "Active",
+    "inactiveBadge": "Paused",
+    "empty": "No alerts yet. Create your first.",
+    "telegramDisabled": "Link Telegram first to use this channel."
+  },
+  "apiKeys": {
+    "pageTitle": "API keys",
+    "pageLead": "Use these keys to call the Makayeel API from your software.",
+    "new": "New key",
+    "nameLabel": "Key name (e.g., Internal ERP)",
+    "create": "Create key",
+    "copyWarning": "Copy this key now — it won't be shown again.",
+    "prefix": "Prefix",
+    "lastUsed": "Last used",
+    "revoke": "Revoke",
+    "empty": "No API keys yet."
+  },
+  "settings": {
+    "pageTitle": "Settings",
+    "languageLabel": "Language",
+    "profileTitle": "Profile",
+    "nameLabel": "Name",
+    "save": "Save"
+  },
+  "linkTelegram": {
+    "pageTitle": "Link Telegram bot",
+    "intro": "Open the bot on Telegram and send this command within 15 minutes:",
+    "codeCta": "Copy code",
+    "botHandle": "@MakayeelBot",
+    "copied": "Copied!",
+    "regenerate": "Regenerate"
+  },
+  "admin": {
+    "pricesPageTitle": "Daily price entry",
+    "pricesLead": "Rows are commodities, columns are sources. Save everything in one action.",
+    "saveAll": "Save all changes",
+    "savedToast": "Saved {count} prices.",
+    "commoditiesTitle": "Manage commodities",
+    "sourcesTitle": "Manage sources",
+    "usersTitle": "Users",
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "footer": {
+    "rights": "© 2026 Makayeel — a product of ATEN STUDIO. All rights reserved.",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "contact": "Contact"
+  },
+  "common": {
+    "loading": "Loading…",
+    "error": "Something went wrong — please retry.",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "close": "Close",
+    "unit": "EGP/ton",
+    "perTon": "per ton"
+  }
+}

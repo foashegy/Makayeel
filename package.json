@@ -1,0 +1,31 @@
+{
+  "name": "makayeel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Makayeel (مكاييل) — Egyptian feed-grain price platform",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "pnpm --filter @makayeel/db generate",
+    "db:migrate": "pnpm --filter @makayeel/db migrate",
+    "db:seed": "pnpm --filter @makayeel/db seed",
+    "db:studio": "pnpm --filter @makayeel/db studio",
+    "db:reset": "pnpm --filter @makayeel/db reset",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\" --ignore-path .gitignore"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.6.3",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.8"
+  }
+}

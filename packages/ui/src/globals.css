@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ───────────────────────────────────────────────────────────────
+   Makayeel — global styles (Tailwind v3)
+   Brand tokens mirror packages/ui/src/tokens.ts
+   ─────────────────────────────────────────────────────────────── */
+
+@layer base {
+  html,
+  body {
+    background: #FAFAF5;
+    color: #2A2A2A;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  html[lang='ar'],
+  html[dir='rtl'] {
+    font-family: var(--font-tajawal), Tajawal, system-ui, sans-serif;
+    line-height: 1.7;
+  }
+
+  html[lang='en'],
+  html[dir='ltr'] {
+    font-family: var(--font-inter), Inter, system-ui, sans-serif;
+  }
+
+  *:focus-visible {
+    outline: 2px solid #D4A24C;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .mono,
+  [data-numeric] {
+    font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ltr {
+    direction: ltr;
+    unicode-bidi: embed;
+  }
+}

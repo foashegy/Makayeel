@@ -1,0 +1,9 @@
+/** @type {import("eslint").Linter.Config} */
+module.exports = {
+  root: false,
+  extends: [require.resolve('./base.js')],
+  env: { node: true, es2022: true },
+  rules: {
+    'no-console': 'off',
+  },
+};
