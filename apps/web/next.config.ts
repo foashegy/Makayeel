@@ -8,6 +8,13 @@ const config: NextConfig = {
   poweredByHeader: false,
   transpilePackages: ['@makayeel/ui', '@makayeel/i18n', '@makayeel/db'],
   serverExternalPackages: ['@prisma/client', 'prisma'],
+  outputFileTracingIncludes: {
+    '/**': [
+      '../../node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/client/*.node',
+      '../../node_modules/.pnpm/@prisma+client@*/node_modules/@prisma/client/**',
+      '../../node_modules/.pnpm/.prisma/client/**',
+    ],
+  },
   experimental: {
     typedRoutes: false,
   },
