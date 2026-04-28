@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { Locale } from '@makayeel/i18n';
 
@@ -24,6 +23,23 @@ interface SavedFormula {
   id: string;
   name: string;
   items: FormulaItem[];
+  totalTons: number;
+  herdSize: number;
+  kgPerHeadPerDay: number;
+  fcr: number;
+  outputPricePerKg: number;
+  outputKind: OutputKind;
+}
+
+interface ApiFormulaItem {
+  commoditySlug: string;
+  percent: number;
+}
+
+interface ApiFormula {
+  id: string;
+  name: string;
+  items: ApiFormulaItem[];
   totalTons: number;
   herdSize: number;
   kgPerHeadPerDay: number;
@@ -97,7 +113,7 @@ function parseFormula(raw: unknown): SavedFormula | null {
   };
 }
 
-function loadSaved(): SavedFormula[] {
+function loadLocalLegacy(): SavedFormula[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -108,6 +124,73 @@ function loadSaved(): SavedFormula[] {
   } catch {
     return [];
   }
+}
+
+function clearLocalLegacy() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function fromApi(a: ApiFormula): SavedFormula {
+  return {
+    id: a.id,
+    name: a.name,
+    items: a.items.map((it) => ({
+      id: rowId(),
+      commoditySlug: it.commoditySlug,
+      percent: clampPercent(it.percent),
+    })),
+    totalTons: clampNonNegative(a.totalTons),
+    herdSize: clampNonNegative(a.herdSize),
+    kgPerHeadPerDay: clampNonNegative(a.kgPerHeadPerDay),
+    fcr: clampNonNegative(a.fcr),
+    outputPricePerKg: clampNonNegative(a.outputPricePerKg),
+    outputKind: a.outputKind,
+  };
+}
+
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: { code?: string; message?: string };
+}
+
+async function apiFetchFormulas(): Promise<ApiFormula[]> {
+  const res = await fetch('/api/v1/formulas', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`fetch_formulas_${res.status}`);
+  const json = (await res.json()) as ApiResponse<ApiFormula[]>;
+  return Array.isArray(json.data) ? json.data : [];
+}
+
+interface CreatePayload {
+  name: string;
+  items: ApiFormulaItem[];
+  totalTons: number;
+  herdSize: number;
+  kgPerHeadPerDay: number;
+  fcr: number;
+  outputPricePerKg: number;
+  outputKind: OutputKind;
+}
+
+async function apiCreateFormula(p: CreatePayload): Promise<ApiFormula | null> {
+  const res = await fetch('/api/v1/formulas', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(p),
+  });
+  if (!res.ok) return null;
+  const json = (await res.json()) as ApiResponse<ApiFormula>;
+  return json.data ?? null;
+}
+
+async function apiDeleteFormula(id: string): Promise<boolean> {
+  const res = await fetch(`/api/v1/formulas/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  return res.ok;
 }
 
 function relativeFreshness(iso: string | null, locale: Locale): string {
@@ -147,9 +230,51 @@ export default function CostCalculator({
   const [outputKind, setOutputKind] = useState<OutputKind>('meat');
   const [formulaName, setFormulaName] = useState<string>('');
   const [saved, setSaved] = useState<SavedFormula[]>([]);
+  const [savingState, setSavingState] = useState<'idle' | 'saving' | 'error'>('idle');
 
+  // Hydrate from API; on first load, migrate any legacy localStorage formulas
+  // to the server, then wipe local storage.
   useEffect(() => {
-    setSaved(loadSaved());
+    let cancelled = false;
+    (async () => {
+      try {
+        const remote = await apiFetchFormulas();
+        if (cancelled) return;
+
+        const legacy = loadLocalLegacy();
+        if (legacy.length > 0 && remote.length === 0) {
+          // Migrate each legacy entry to the server.
+          const created: ApiFormula[] = [];
+          for (const f of legacy) {
+            const cleanItems = f.items
+              .filter((r) => r.commoditySlug && r.percent > 0)
+              .map((r) => ({ commoditySlug: r.commoditySlug, percent: r.percent }));
+            if (cleanItems.length === 0) continue;
+            const out = await apiCreateFormula({
+              name: f.name,
+              items: cleanItems,
+              totalTons: f.totalTons || 1,
+              herdSize: f.herdSize,
+              kgPerHeadPerDay: f.kgPerHeadPerDay,
+              fcr: f.fcr,
+              outputPricePerKg: f.outputPricePerKg,
+              outputKind: f.outputKind,
+            });
+            if (out) created.push(out);
+          }
+          if (created.length > 0) clearLocalLegacy();
+          if (!cancelled) setSaved(created.map(fromApi));
+        } else {
+          setSaved(remote.map(fromApi));
+          if (legacy.length > 0) clearLocalLegacy();
+        }
+      } catch {
+        // Network failure — leave the saved list empty; user can still use the calculator.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const fmt = (n: number) =>
@@ -216,21 +341,15 @@ export default function CostCalculator({
     setOutputPricePerKg(0);
   }
 
-  function persist(updater: (prev: SavedFormula[]) => SavedFormula[]) {
-    setSaved((prev) => {
-      const next = updater(prev);
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
-  }
-
   const canSave = formulaName.trim().length > 0 && hasAnyItem && percentValid;
 
-  function saveFormula() {
-    if (!canSave) return;
-    const cleanItems = items.filter((r) => r.commoditySlug && r.percent > 0);
-    const next: SavedFormula = {
-      id: `f-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+  async function saveFormula() {
+    if (!canSave || savingState === 'saving') return;
+    const cleanItems = items
+      .filter((r) => r.commoditySlug && r.percent > 0)
+      .map((r) => ({ commoditySlug: r.commoditySlug, percent: r.percent }));
+    setSavingState('saving');
+    const created = await apiCreateFormula({
       name: formulaName.trim(),
       items: cleanItems,
       totalTons: clampNonNegative(Number(totalTons) || 1),
@@ -239,8 +358,13 @@ export default function CostCalculator({
       fcr: clampNonNegative(Number(fcr) || 0),
       outputPricePerKg: clampNonNegative(Number(outputPricePerKg) || 0),
       outputKind,
-    };
-    persist((prev) => [next, ...prev]);
+    });
+    if (!created) {
+      setSavingState('error');
+      return;
+    }
+    setSaved((prev) => [fromApi(created), ...prev]);
+    setSavingState('idle');
   }
 
   function loadFormula(f: SavedFormula) {
@@ -254,8 +378,12 @@ export default function CostCalculator({
     setFormulaName(f.name);
   }
 
-  function deleteFormula(id: string) {
-    persist((prev) => prev.filter((f) => f.id !== id));
+  async function deleteFormula(id: string) {
+    // Optimistic — rollback on failure.
+    const prev = saved;
+    setSaved((s) => s.filter((f) => f.id !== id));
+    const ok = await apiDeleteFormula(id);
+    if (!ok) setSaved(prev);
   }
 
   return (
@@ -508,7 +636,7 @@ export default function CostCalculator({
             <button
               type="button"
               onClick={saveFormula}
-              disabled={!canSave}
+              disabled={!canSave || savingState === 'saving'}
               title={
                 !canSave && hasAnyItem && !percentValid
                   ? locale === 'ar'
@@ -518,7 +646,13 @@ export default function CostCalculator({
               }
               className="rounded-lg bg-deep-navy px-4 py-2 text-sm font-medium text-paper-white transition disabled:opacity-40 enabled:hover:opacity-90"
             >
-              {locale === 'ar' ? 'حفظ' : 'Save'}
+              {savingState === 'saving'
+                ? locale === 'ar'
+                  ? 'جاري الحفظ...'
+                  : 'Saving...'
+                : locale === 'ar'
+                  ? 'حفظ'
+                  : 'Save'}
             </button>
             <button
               type="button"
@@ -529,21 +663,34 @@ export default function CostCalculator({
             </button>
           </div>
 
-          {/* Pro upgrade callout — replaces the buried "saved on this device" line */}
-          <div className="mt-4 flex flex-col gap-2 rounded-lg border border-wheat-gold/30 bg-brand-50 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-deep-navy/90">
+          {savingState === 'error' && (
+            <p className="mt-3 rounded-lg bg-alert-red/10 px-3 py-2 text-xs text-alert-red">
               {locale === 'ar'
-                ? '🔒 وصفاتك دلوقتي على الجهاز ده فقط.'
-                : '🔒 Your formulas are stored on this device only.'}
+                ? '⚠️ فشل الحفظ. حاول تاني بعد لحظات.'
+                : '⚠️ Save failed. Try again in a moment.'}
             </p>
-            <Link
-              href={`/${locale}/pricing`}
-              className="font-medium text-wheat-gold hover:opacity-80"
-            >
+          )}
+
+          <div className="mt-4 flex flex-col gap-2 rounded-lg border border-harvest-green/20 bg-harvest-green/5 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+            <p className="flex items-center gap-2 text-deep-navy/90">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-harvest-green"
+                aria-hidden
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
               {locale === 'ar'
-                ? 'فعّل المزامنة عبر الأجهزة مع Pro ←'
-                : 'Sync across devices with Pro →'}
-            </Link>
+                ? 'وصفاتك متزامنة على كل أجهزتك.'
+                : 'Your formulas sync across all your devices.'}
+            </p>
           </div>
         </section>
       </div>
