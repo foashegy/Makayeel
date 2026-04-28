@@ -7,5 +7,5 @@
   NODE_VERSION = "20.11.0"
   PNPM_VERSION = "10.33.0"
 
-# @netlify/plugin-nextjs is auto-installed by Netlify (latest v5.x).
-# We pin v5 via apps/web devDep below to ensure Next 15 compatibility.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
