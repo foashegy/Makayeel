@@ -1,11 +1,8 @@
 [build]
-  base    = "."
-  command = "node scripts/netlify-build.mjs"
-  publish = "apps/web/.next"
+  base    = "apps/web"
+  command = "node ../../scripts/netlify-build.mjs"
+  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20.11.0"
   PNPM_VERSION = "10.33.0"
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
