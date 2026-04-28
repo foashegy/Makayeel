@@ -7,6 +7,7 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ['@makayeel/ui', '@makayeel/i18n', '@makayeel/db'],
+  serverExternalPackages: ['@prisma/client', 'prisma'],
   experimental: {
     typedRoutes: false,
   },
