@@ -18,6 +18,7 @@ import { startHandler } from './commands/start';
 import { pricesHandler } from './commands/prices';
 import { priceHandler } from './commands/price';
 import { barakaHandler } from './commands/baraka';
+import { costHandler } from './commands/cost';
 // chart command needs `canvas` native bindings (build tools) — stubbed for now.
 // import { chartHandler } from './commands/chart';
 import { linkHandler } from './commands/link';
@@ -41,6 +42,7 @@ bot.command(['help', 'مساعدة'], helpHandler);
 bot.command(['prices', 'اسعار', 'أسعار'], pricesHandler);
 bot.command(['price', 'سعر'], priceHandler);
 bot.command(['baraka', 'بركة'], barakaHandler);
+bot.command(['cost', 'تكلفة', 'حساب'], costHandler);
 bot.command(['chart', 'شارت', 'رسم'], async (ctx) => {
   const locale = ctx.session.locale;
   await ctx.reply(
@@ -75,6 +77,7 @@ async function start() {
     { command: 'prices', description: 'أسعار اليوم / Today\'s prices' },
     { command: 'price', description: 'سعر خامة / Price of one commodity' },
     { command: 'baraka', description: 'أسعار بركة للأعلاف / Baraka Feeds prices' },
+    { command: 'cost', description: 'تكلفة وصفاتك / Your saved formulas' },
     { command: 'chart', description: 'شارت / Chart' },
     { command: 'alert', description: 'تنبيه / Alert' },
     { command: 'alerts', description: 'تنبيهاتي / My alerts' },
