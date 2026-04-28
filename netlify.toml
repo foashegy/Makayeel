@@ -1,6 +1,6 @@
 [build]
   base    = "."
-  command = "export DATABASE_URL=\"${DATABASE_URL:-$NETLIFY_DATABASE_URL}\" && corepack enable && corepack prepare pnpm@10.33.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @makayeel/db generate && pnpm --filter @makayeel/db migrate:deploy && pnpm --filter @makayeel/web build"
+  command = "node scripts/netlify-build.mjs"
   publish = "apps/web/.next"
 
 [build.environment]

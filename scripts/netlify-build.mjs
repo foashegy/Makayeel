@@ -1,0 +1,26 @@
+#!/usr/bin/env node
+import { execSync } from 'node:child_process';
+
+const env = { ...process.env };
+if (!env.DATABASE_URL && env.NETLIFY_DATABASE_URL) {
+  env.DATABASE_URL = env.NETLIFY_DATABASE_URL;
+  console.log('[netlify-build] bridged NETLIFY_DATABASE_URL → DATABASE_URL');
+}
+if (!env.DATABASE_URL) {
+  console.error('[netlify-build] DATABASE_URL not set and NETLIFY_DATABASE_URL absent — aborting');
+  process.exit(1);
+}
+
+const steps = [
+  'corepack enable',
+  'corepack prepare pnpm@10.33.0 --activate',
+  'pnpm install --frozen-lockfile',
+  'pnpm --filter @makayeel/db generate',
+  'pnpm --filter @makayeel/db migrate:deploy',
+  'pnpm --filter @makayeel/web build',
+];
+
+for (const cmd of steps) {
+  console.log(`\n[netlify-build] $ ${cmd}`);
+  execSync(cmd, { stdio: 'inherit', env });
+}
