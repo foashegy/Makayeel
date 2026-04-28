@@ -2,7 +2,7 @@
 module.exports = {
   root: false,
   extends: [
-    require.resolve('./base.js'),
+    require.resolve('./base.cjs'),
     'next/core-web-vitals',
     'plugin:jsx-a11y/recommended',
   ],

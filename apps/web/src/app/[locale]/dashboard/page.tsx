@@ -52,6 +52,23 @@ export default async function DashboardHome({
         {t('alertsCount', { count: alerts })}
       </p>
 
+      <Link
+        href={`/${locale}/dashboard/cost`}
+        className="mb-8 flex items-center justify-between gap-4 rounded-xl border border-wheat-gold/40 bg-gradient-to-br from-brand-50 to-paper-white p-6 transition hover:border-wheat-gold hover:shadow-md"
+      >
+        <div>
+          <h2 className="mb-1 text-xl font-medium text-deep-navy">
+            {locale === 'ar' ? 'احسب تكلفة خلطتك' : 'Calculate your mix cost'}
+          </h2>
+          <p className="text-sm text-navy-200">
+            {locale === 'ar'
+              ? 'بأسعار النهاردة — تكلفة الطن، التكلفة اليومية للقطيع، والتكلفة الشهرية المتوقعة.'
+              : "With today's prices — cost per ton, daily herd cost, and projected monthly cost."}
+          </p>
+        </div>
+        <span className="text-3xl text-wheat-gold">{locale === 'ar' ? '←' : '→'}</span>
+      </Link>
+
       {!botLink && (
         <div className="mb-8 flex flex-col items-start justify-between gap-3 rounded-xl border border-wheat-gold/30 bg-brand-50 p-5 sm:flex-row sm:items-center">
           <p className="text-sm text-deep-navy">{t('linkTelegramCta')}</p>

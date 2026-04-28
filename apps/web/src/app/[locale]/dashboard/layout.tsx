@@ -35,6 +35,9 @@ export default async function DashboardLayout({
             <Link href={`/${locale}/dashboard`} className="text-sm font-medium text-deep-navy hover:opacity-70">
               {t('dashboard')}
             </Link>
+            <Link href={`/${locale}/dashboard/cost`} className="text-sm text-deep-navy hover:opacity-70">
+              {locale === 'ar' ? 'التكلفة' : 'Cost'}
+            </Link>
             <Link href={`/${locale}/dashboard/alerts`} className="text-sm text-deep-navy hover:opacity-70">
               {locale === 'ar' ? 'التنبيهات' : 'Alerts'}
             </Link>
