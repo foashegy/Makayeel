@@ -12,6 +12,7 @@ export interface CommodityOption {
 }
 
 interface FormulaItem {
+  id: string;
   commoditySlug: string;
   percent: number;
 }
@@ -26,9 +27,52 @@ interface SavedFormula {
 }
 
 const STORAGE_KEY = 'makayeel.formulas.v1';
+const INITIAL_ROW_COUNT = 3;
+
+function rowId(): string {
+  return `r-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
 
 function emptyRow(): FormulaItem {
-  return { commoditySlug: '', percent: 0 };
+  return { id: rowId(), commoditySlug: '', percent: 0 };
+}
+
+function clampPercent(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, n));
+}
+
+function clampNonNegative(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, n);
+}
+
+// Strict validator — rejects malformed entries instead of casting blindly.
+function parseFormula(raw: unknown): SavedFormula | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const f = raw as Record<string, unknown>;
+  if (typeof f.id !== 'string' || typeof f.name !== 'string') return null;
+  if (!Array.isArray(f.items)) return null;
+  const items: FormulaItem[] = [];
+  for (const it of f.items) {
+    if (!it || typeof it !== 'object') return null;
+    const r = it as Record<string, unknown>;
+    if (typeof r.commoditySlug !== 'string') return null;
+    if (typeof r.percent !== 'number' || !Number.isFinite(r.percent)) return null;
+    items.push({
+      id: typeof r.id === 'string' ? r.id : rowId(),
+      commoditySlug: r.commoditySlug,
+      percent: clampPercent(r.percent),
+    });
+  }
+  return {
+    id: f.id,
+    name: f.name,
+    items,
+    totalTons: clampNonNegative(typeof f.totalTons === 'number' ? f.totalTons : 1),
+    herdSize: clampNonNegative(typeof f.herdSize === 'number' ? f.herdSize : 0),
+    kgPerHeadPerDay: clampNonNegative(typeof f.kgPerHeadPerDay === 'number' ? f.kgPerHeadPerDay : 0),
+  };
 }
 
 function loadSaved(): SavedFormula[] {
@@ -37,7 +81,8 @@ function loadSaved(): SavedFormula[] {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as SavedFormula[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(parseFormula).filter((f): f is SavedFormula => f !== null);
   } catch {
     return [];
   }
@@ -50,7 +95,9 @@ export default function CostCalculator({
   commodities: CommodityOption[];
   locale: Locale;
 }) {
-  const [items, setItems] = useState<FormulaItem[]>(() => [emptyRow(), emptyRow(), emptyRow()]);
+  const [items, setItems] = useState<FormulaItem[]>(() =>
+    Array.from({ length: INITIAL_ROW_COUNT }, emptyRow),
+  );
   const [totalTons, setTotalTons] = useState<number>(1);
   const [herdSize, setHerdSize] = useState<number>(0);
   const [kgPerHeadPerDay, setKgPerHeadPerDay] = useState<number>(0);
@@ -106,33 +153,39 @@ export default function CostCalculator({
   }
 
   function clearAll() {
-    setItems([emptyRow(), emptyRow(), emptyRow()]);
+    setItems(Array.from({ length: INITIAL_ROW_COUNT }, emptyRow));
     setFormulaName('');
     setHerdSize(0);
     setKgPerHeadPerDay(0);
   }
 
-  function persist(next: SavedFormula[]) {
-    setSaved(next);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  function persist(updater: (prev: SavedFormula[]) => SavedFormula[]) {
+    setSaved((prev) => {
+      const next = updater(prev);
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   }
 
+  const canSave = formulaName.trim().length > 0 && hasAnyItem && percentValid;
+
   function saveFormula() {
-    if (!formulaName.trim() || !hasAnyItem) return;
+    if (!canSave) return;
     const cleanItems = items.filter((r) => r.commoditySlug && r.percent > 0);
     const next: SavedFormula = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: `f-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       name: formulaName.trim(),
       items: cleanItems,
-      totalTons: Number(totalTons) || 1,
-      herdSize: Number(herdSize) || 0,
-      kgPerHeadPerDay: Number(kgPerHeadPerDay) || 0,
+      totalTons: clampNonNegative(Number(totalTons) || 1),
+      herdSize: clampNonNegative(Number(herdSize) || 0),
+      kgPerHeadPerDay: clampNonNegative(Number(kgPerHeadPerDay) || 0),
     };
-    persist([next, ...saved]);
+    persist((prev) => [next, ...prev]);
   }
 
   function loadFormula(f: SavedFormula) {
-    setItems(f.items.length ? f.items : [emptyRow()]);
+    // Re-id rows so React keys remain stable across loads.
+    setItems(f.items.length ? f.items.map((r) => ({ ...r, id: rowId() })) : [emptyRow()]);
     setTotalTons(f.totalTons || 1);
     setHerdSize(f.herdSize || 0);
     setKgPerHeadPerDay(f.kgPerHeadPerDay || 0);
@@ -140,7 +193,7 @@ export default function CostCalculator({
   }
 
   function deleteFormula(id: string) {
-    persist(saved.filter((f) => f.id !== id));
+    persist((prev) => prev.filter((f) => f.id !== id));
   }
 
   return (
@@ -171,48 +224,78 @@ export default function CostCalculator({
                 : 0;
               return (
                 <div
-                  key={idx}
-                  className="grid grid-cols-[1fr_90px_120px_32px] items-center gap-2"
+                  key={row.id}
+                  className="grid grid-cols-2 gap-2 rounded-lg bg-navy/[0.02] p-3 sm:grid-cols-[1fr_90px_120px_44px] sm:items-center sm:gap-2 sm:rounded-none sm:bg-transparent sm:p-0"
                 >
-                  <select
-                    value={row.commoditySlug}
-                    onChange={(e) => setRow(idx, { commoditySlug: e.target.value })}
-                    className="rounded-lg border border-navy/10 bg-paper-white px-3 py-2 text-sm text-deep-navy focus:border-wheat-gold focus:outline-none"
-                  >
-                    <option value="">
-                      {locale === 'ar' ? 'اختر خامة...' : 'Choose commodity...'}
-                    </option>
-                    {commodities.map((c) => (
-                      <option key={c.slug} value={c.slug}>
-                        {locale === 'ar' ? c.nameAr : c.nameEn} —{' '}
-                        {fmt(c.pricePerTon)} {c.unit}
+                  <label className="col-span-2 sm:col-span-1">
+                    <span className="sr-only">
+                      {locale === 'ar' ? `الخامة ${idx + 1}` : `Commodity ${idx + 1}`}
+                    </span>
+                    <select
+                      value={row.commoditySlug}
+                      onChange={(e) => setRow(idx, { commoditySlug: e.target.value })}
+                      className="w-full rounded-lg border border-navy/10 bg-paper-white px-3 py-2 text-sm text-deep-navy focus:border-wheat-gold focus:outline-none"
+                    >
+                      <option value="">
+                        {locale === 'ar' ? 'اختر خامة...' : 'Choose commodity...'}
                       </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    value={row.percent || ''}
-                    onChange={(e) =>
-                      setRow(idx, { percent: Number(e.target.value) || 0 })
-                    }
-                    placeholder="%"
-                    min={0}
-                    max={100}
-                    step={0.5}
-                    className="rounded-lg border border-navy/10 bg-paper-white px-3 py-2 text-sm text-deep-navy focus:border-wheat-gold focus:outline-none"
-                  />
-                  <div className="text-right text-sm tabular-nums text-navy-200">
-                    {commodity ? `${fmt(lineCost)} ${commodity.unit.split('/')[0]}` : '—'}
+                      {commodities.map((c) => (
+                        <option key={c.slug} value={c.slug}>
+                          {locale === 'ar' ? c.nameAr : c.nameEn} —{' '}
+                          {fmt(c.pricePerTon)} {c.unit}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="sr-only">
+                      {locale === 'ar' ? 'النسبة المئوية' : 'Percentage'}
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={row.percent || ''}
+                      onChange={(e) =>
+                        setRow(idx, { percent: clampPercent(Number(e.target.value)) })
+                      }
+                      placeholder="%"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      className="w-full rounded-lg border border-navy/10 bg-paper-white px-3 py-2 text-sm text-deep-navy focus:border-wheat-gold focus:outline-none"
+                    />
+                  </label>
+                  <div className="flex items-center justify-between gap-2 sm:justify-end">
+                    <span className="text-xs text-navy-200 sm:hidden">
+                      {locale === 'ar' ? 'السطر:' : 'Line:'}
+                    </span>
+                    <span className="text-sm tabular-nums text-navy-200">
+                      {commodity ? fmt(lineCost) : '—'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeRow(idx)}
+                      className="flex h-11 w-11 items-center justify-center rounded-md text-navy-200 transition hover:bg-alert-red/10 hover:text-alert-red disabled:opacity-30 sm:h-11 sm:w-11"
+                      aria-label={locale === 'ar' ? 'حذف الخامة' : 'Remove component'}
+                      disabled={items.length <= 1}
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      </svg>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeRow(idx)}
-                    className="text-navy-200 transition hover:text-alert-red"
-                    aria-label={locale === 'ar' ? 'حذف' : 'Remove'}
-                    disabled={items.length <= 1}
-                  >
-                    ×
-                  </button>
                 </div>
               );
             })}
@@ -239,8 +322,9 @@ export default function CostCalculator({
               </span>
               <input
                 type="number"
+                inputMode="decimal"
                 value={totalTons}
-                onChange={(e) => setTotalTons(Number(e.target.value) || 0)}
+                onChange={(e) => setTotalTons(clampNonNegative(Number(e.target.value)))}
                 min={0}
                 step={0.5}
                 className="w-full rounded-lg border border-navy/10 bg-paper-white px-3 py-2 text-sm text-deep-navy focus:border-wheat-gold focus:outline-none"
@@ -252,8 +336,9 @@ export default function CostCalculator({
               </span>
               <input
                 type="number"
+                inputMode="numeric"
                 value={herdSize || ''}
-                onChange={(e) => setHerdSize(Number(e.target.value) || 0)}
+                onChange={(e) => setHerdSize(clampNonNegative(Number(e.target.value)))}
                 min={0}
                 className="w-full rounded-lg border border-navy/10 bg-paper-white px-3 py-2 text-sm text-deep-navy focus:border-wheat-gold focus:outline-none"
               />
@@ -264,8 +349,9 @@ export default function CostCalculator({
               </span>
               <input
                 type="number"
+                inputMode="decimal"
                 value={kgPerHeadPerDay || ''}
-                onChange={(e) => setKgPerHeadPerDay(Number(e.target.value) || 0)}
+                onChange={(e) => setKgPerHeadPerDay(clampNonNegative(Number(e.target.value)))}
                 min={0}
                 step={0.5}
                 className="w-full rounded-lg border border-navy/10 bg-paper-white px-3 py-2 text-sm text-deep-navy focus:border-wheat-gold focus:outline-none"
@@ -290,7 +376,14 @@ export default function CostCalculator({
             <button
               type="button"
               onClick={saveFormula}
-              disabled={!formulaName.trim() || !hasAnyItem}
+              disabled={!canSave}
+              title={
+                !canSave && hasAnyItem && !percentValid
+                  ? locale === 'ar'
+                    ? 'مجموع النسب لازم يكون 100% قبل الحفظ'
+                    : 'Percentages must total 100% before saving'
+                  : undefined
+              }
               className="rounded-lg bg-deep-navy px-4 py-2 text-sm font-medium text-paper-white transition disabled:opacity-40 enabled:hover:opacity-90"
             >
               {locale === 'ar' ? 'حفظ' : 'Save'}
@@ -363,7 +456,7 @@ export default function CostCalculator({
                   <dt className="text-xs text-navy-200">
                     {locale === 'ar' ? 'تكلفة شهرية (٣٠ يوم)' : 'Monthly cost (30 days)'}
                   </dt>
-                  <dd className="text-xl font-medium tabular-nums text-harvest-green">
+                  <dd className="text-xl font-medium tabular-nums text-wheat-gold">
                     {fmt(monthlyCost)}{' '}
                     <span className="text-sm font-normal text-navy-200">EGP</span>
                   </dd>
