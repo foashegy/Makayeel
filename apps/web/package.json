@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@makayeel/config": "workspace:*",
+    "@netlify/plugin-nextjs": "^5.15.9",
     "@types/node": "^20.17.6",
     "@types/nodemailer": "^6.4.16",
     "@types/react": "^19.0.0",
