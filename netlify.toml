@@ -1,0 +1,11 @@
+[build]
+  base    = "."
+  command = "export DATABASE_URL=\"${DATABASE_URL:-$NETLIFY_DATABASE_URL}\" && corepack enable && corepack prepare pnpm@10.33.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @makayeel/db generate && pnpm --filter @makayeel/db migrate:deploy && pnpm --filter @makayeel/web build"
+  publish = "apps/web/.next"
+
+[build.environment]
+  NODE_VERSION = "20.11.0"
+  PNPM_VERSION = "10.33.0"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
