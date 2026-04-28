@@ -6,3 +6,6 @@
 [build.environment]
   NODE_VERSION = "20.11.0"
   PNPM_VERSION = "10.33.0"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
