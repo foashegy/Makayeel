@@ -236,7 +236,14 @@ async function main() {
   console.log(`✅ ${sourceRows.length} sources`);
 
   // 4. 30 days of prices ------------------------------------------------
-  const today = toDateOnly(new Date());
+  // Use Cairo-local "today" so the API's cairoToday() query matches.
+  const cairoIsoDay = new Date().toLocaleString('en-CA', {
+    timeZone: 'Africa/Cairo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const today = new Date(`${cairoIsoDay}T00:00:00.000Z`);
   const priceInserts: Prisma.PriceCreateManyInput[] = [];
 
   for (const commodity of COMMODITIES) {
