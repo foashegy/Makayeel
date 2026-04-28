@@ -1,7 +1,8 @@
 import { redirect, notFound } from 'next/navigation';
 import { auth } from '@/auth';
+import { prisma } from '@makayeel/db';
 import { isLocale, type Locale } from '@makayeel/i18n';
-import { getTodayPrices, getActiveCommodities } from '@/lib/queries';
+import { getTodayPrices, getActiveCommodities, cairoToday } from '@/lib/queries';
 import CostCalculator, { type CommodityOption } from './cost-calculator';
 
 export default async function CostPage({
@@ -16,27 +17,47 @@ export default async function CostPage({
   const session = await auth();
   if (!session?.user?.id) redirect(`/${locale}/login`);
 
-  const [commodities, todayPrices] = await Promise.all([
+  const [commodities, todayPrices, latestPrice] = await Promise.all([
     getActiveCommodities(),
     getTodayPrices(),
+    prisma.price.findFirst({
+      where: { date: cairoToday() },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    }),
   ]);
 
-  // Cheapest source per commodity = the price we use for the mix.
-  const minPrice = new Map<string, number>();
+  // Cheapest source per commodity — the source we attribute the price to.
+  const cheapestByCommodity = new Map<
+    string,
+    { value: number; sourceNameAr: string; sourceNameEn: string }
+  >();
   for (const p of todayPrices) {
-    const cur = minPrice.get(p.commodityId);
-    if (cur === undefined || p.value < cur) minPrice.set(p.commodityId, p.value);
+    const cur = cheapestByCommodity.get(p.commodityId);
+    if (cur === undefined || p.value < cur.value) {
+      cheapestByCommodity.set(p.commodityId, {
+        value: p.value,
+        sourceNameAr: p.sourceNameAr,
+        sourceNameEn: p.sourceNameEn,
+      });
+    }
   }
 
   const options: CommodityOption[] = commodities
-    .map((c) => ({
-      slug: c.slug,
-      nameAr: c.nameAr,
-      nameEn: c.nameEn,
-      unit: c.unit,
-      pricePerTon: minPrice.get(c.id) ?? 0,
-    }))
-    .filter((c) => c.pricePerTon > 0);
+    .map((c): CommodityOption | null => {
+      const cheapest = cheapestByCommodity.get(c.id);
+      if (!cheapest || cheapest.value <= 0 || !Number.isFinite(cheapest.value)) return null;
+      return {
+        slug: c.slug,
+        nameAr: c.nameAr,
+        nameEn: c.nameEn,
+        unit: c.unit,
+        pricePerTon: cheapest.value,
+        sourceNameAr: cheapest.sourceNameAr,
+        sourceNameEn: cheapest.sourceNameEn,
+      };
+    })
+    .filter((c): c is CommodityOption => c !== null);
 
   const noPricesToday = options.length === 0;
 
@@ -54,13 +75,24 @@ export default async function CostPage({
       </div>
 
       {noPricesToday ? (
-        <div className="rounded-xl border border-alert-red/20 bg-alert-red/5 p-8 text-center text-deep-navy">
-          {locale === 'ar'
-            ? 'مفيش أسعار النهاردة لسه. ارجع بعد ما الإدارة تدخل أسعار اليوم.'
-            : 'No prices for today yet. Come back once admin has logged today\'s prices.'}
+        <div className="rounded-xl border border-navy/10 bg-paper-white p-8 text-center text-deep-navy">
+          <p className="text-base">
+            {locale === 'ar'
+              ? '⏱ مفيش أسعار النهاردة لسه.'
+              : '⏱ No prices for today yet.'}
+          </p>
+          <p className="mt-2 text-sm text-navy-200">
+            {locale === 'ar'
+              ? 'الإدارة بتدخل أسعار اليوم قبل الساعة ٧ صباحاً.'
+              : "Admin logs today's prices before 7 AM Cairo time."}
+          </p>
         </div>
       ) : (
-        <CostCalculator commodities={options} locale={locale} />
+        <CostCalculator
+          commodities={options}
+          locale={locale}
+          lastUpdatedISO={latestPrice?.createdAt.toISOString() ?? null}
+        />
       )}
     </div>
   );

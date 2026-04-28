@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { Locale } from '@makayeel/i18n';
 
@@ -9,6 +10,8 @@ export interface CommodityOption {
   nameEn: string;
   unit: string;
   pricePerTon: number;
+  sourceNameAr: string;
+  sourceNameEn: string;
 }
 
 interface FormulaItem {
@@ -24,10 +27,22 @@ interface SavedFormula {
   totalTons: number;
   herdSize: number;
   kgPerHeadPerDay: number;
+  fcr: number;
+  outputPricePerKg: number;
+  outputKind: OutputKind;
 }
+
+type OutputKind = 'meat' | 'milk' | 'eggs' | 'custom';
 
 const STORAGE_KEY = 'makayeel.formulas.v1';
 const INITIAL_ROW_COUNT = 3;
+
+const OUTPUT_KIND_LABELS: Record<OutputKind, { ar: string; en: string }> = {
+  meat: { ar: 'لحم', en: 'Meat' },
+  milk: { ar: 'لبن', en: 'Milk' },
+  eggs: { ar: 'بيض', en: 'Eggs' },
+  custom: { ar: 'مُخصّص', en: 'Custom' },
+};
 
 function rowId(): string {
   return `r-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -65,6 +80,10 @@ function parseFormula(raw: unknown): SavedFormula | null {
       percent: clampPercent(r.percent),
     });
   }
+  const outputKind: OutputKind =
+    f.outputKind === 'meat' || f.outputKind === 'milk' || f.outputKind === 'eggs' || f.outputKind === 'custom'
+      ? f.outputKind
+      : 'meat';
   return {
     id: f.id,
     name: f.name,
@@ -72,6 +91,9 @@ function parseFormula(raw: unknown): SavedFormula | null {
     totalTons: clampNonNegative(typeof f.totalTons === 'number' ? f.totalTons : 1),
     herdSize: clampNonNegative(typeof f.herdSize === 'number' ? f.herdSize : 0),
     kgPerHeadPerDay: clampNonNegative(typeof f.kgPerHeadPerDay === 'number' ? f.kgPerHeadPerDay : 0),
+    fcr: clampNonNegative(typeof f.fcr === 'number' ? f.fcr : 0),
+    outputPricePerKg: clampNonNegative(typeof f.outputPricePerKg === 'number' ? f.outputPricePerKg : 0),
+    outputKind,
   };
 }
 
@@ -88,12 +110,31 @@ function loadSaved(): SavedFormula[] {
   }
 }
 
+function relativeFreshness(iso: string | null, locale: Locale): string {
+  if (!iso) return locale === 'ar' ? 'مش متوفر' : 'unavailable';
+  const updated = new Date(iso).getTime();
+  const now = Date.now();
+  const minutes = Math.max(0, Math.round((now - updated) / 60_000));
+  if (minutes < 1) return locale === 'ar' ? 'منذ لحظات' : 'moments ago';
+  if (minutes < 60) {
+    return locale === 'ar' ? `من ${minutes} دقيقة` : `${minutes} min ago`;
+  }
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) {
+    return locale === 'ar' ? `من ${hours} ساعة` : `${hours} hr ago`;
+  }
+  const days = Math.round(hours / 24);
+  return locale === 'ar' ? `من ${days} يوم` : `${days} d ago`;
+}
+
 export default function CostCalculator({
   commodities,
   locale,
+  lastUpdatedISO,
 }: {
   commodities: CommodityOption[];
   locale: Locale;
+  lastUpdatedISO: string | null;
 }) {
   const [items, setItems] = useState<FormulaItem[]>(() =>
     Array.from({ length: INITIAL_ROW_COUNT }, emptyRow),
@@ -101,6 +142,9 @@ export default function CostCalculator({
   const [totalTons, setTotalTons] = useState<number>(1);
   const [herdSize, setHerdSize] = useState<number>(0);
   const [kgPerHeadPerDay, setKgPerHeadPerDay] = useState<number>(0);
+  const [fcr, setFcr] = useState<number>(0);
+  const [outputPricePerKg, setOutputPricePerKg] = useState<number>(0);
+  const [outputKind, setOutputKind] = useState<OutputKind>('meat');
   const [formulaName, setFormulaName] = useState<string>('');
   const [saved, setSaved] = useState<SavedFormula[]>([]);
 
@@ -137,6 +181,17 @@ export default function CostCalculator({
   const dailyCost = dailyTons * costPerTon;
   const monthlyCost = dailyCost * 30;
 
+  // Breakeven: cost per kg of output = (cost per kg feed) × FCR.
+  // costPerTon ÷ 1000 = cost per kg of feed.
+  const costPerKgFeed = costPerTon / 1000;
+  const costPerKgOutput = costPerKgFeed * (Number(fcr) || 0);
+  const marginPerKg = (Number(outputPricePerKg) || 0) - costPerKgOutput;
+  const marginPercent =
+    outputPricePerKg > 0 ? (marginPerKg / outputPricePerKg) * 100 : 0;
+  const showBreakeven = fcr > 0 && outputPricePerKg > 0;
+  const showHerdProjection = dailyKg > 0 && costPerTon > 0;
+  const heroIsMonthly = showHerdProjection;
+
   const percentValid = Math.abs(totalPercent - 100) < 0.01;
   const hasAnyItem = items.some((r) => r.commoditySlug && r.percent > 0);
 
@@ -157,6 +212,8 @@ export default function CostCalculator({
     setFormulaName('');
     setHerdSize(0);
     setKgPerHeadPerDay(0);
+    setFcr(0);
+    setOutputPricePerKg(0);
   }
 
   function persist(updater: (prev: SavedFormula[]) => SavedFormula[]) {
@@ -179,16 +236,21 @@ export default function CostCalculator({
       totalTons: clampNonNegative(Number(totalTons) || 1),
       herdSize: clampNonNegative(Number(herdSize) || 0),
       kgPerHeadPerDay: clampNonNegative(Number(kgPerHeadPerDay) || 0),
+      fcr: clampNonNegative(Number(fcr) || 0),
+      outputPricePerKg: clampNonNegative(Number(outputPricePerKg) || 0),
+      outputKind,
     };
     persist((prev) => [next, ...prev]);
   }
 
   function loadFormula(f: SavedFormula) {
-    // Re-id rows so React keys remain stable across loads.
     setItems(f.items.length ? f.items.map((r) => ({ ...r, id: rowId() })) : [emptyRow()]);
     setTotalTons(f.totalTons || 1);
     setHerdSize(f.herdSize || 0);
     setKgPerHeadPerDay(f.kgPerHeadPerDay || 0);
+    setFcr(f.fcr || 0);
+    setOutputPricePerKg(f.outputPricePerKg || 0);
+    setOutputKind(f.outputKind || 'meat');
     setFormulaName(f.name);
   }
 
@@ -222,10 +284,15 @@ export default function CostCalculator({
               const lineCost = commodity
                 ? commodity.pricePerTon * ((Number(row.percent) || 0) / 100)
                 : 0;
+              const sourceLabel = commodity
+                ? locale === 'ar'
+                  ? commodity.sourceNameAr
+                  : commodity.sourceNameEn
+                : '';
               return (
                 <div
                   key={row.id}
-                  className="grid grid-cols-2 gap-2 rounded-lg bg-navy/[0.02] p-3 sm:grid-cols-[1fr_90px_120px_44px] sm:items-center sm:gap-2 sm:rounded-none sm:bg-transparent sm:p-0"
+                  className="grid grid-cols-2 gap-2 rounded-lg bg-navy/[0.02] p-3 sm:grid-cols-[1fr_90px_140px_44px] sm:items-center sm:gap-2 sm:rounded-none sm:bg-transparent sm:p-0"
                 >
                   <label className="col-span-2 sm:col-span-1">
                     <span className="sr-only">
@@ -246,6 +313,12 @@ export default function CostCalculator({
                         </option>
                       ))}
                     </select>
+                    {sourceLabel && (
+                      <span className="mt-1 block text-[11px] text-navy-200">
+                        {locale === 'ar' ? 'المصدر: ' : 'Source: '}
+                        {sourceLabel}
+                      </span>
+                    )}
                   </label>
                   <label className="block">
                     <span className="sr-only">
@@ -275,7 +348,7 @@ export default function CostCalculator({
                     <button
                       type="button"
                       onClick={() => removeRow(idx)}
-                      className="flex h-11 w-11 items-center justify-center rounded-md text-navy-200 transition hover:bg-alert-red/10 hover:text-alert-red disabled:opacity-30 sm:h-11 sm:w-11"
+                      className="flex h-11 w-11 items-center justify-center rounded-md text-navy-200 transition hover:bg-alert-red/10 hover:text-alert-red disabled:opacity-30"
                       aria-label={locale === 'ar' ? 'حذف الخامة' : 'Remove component'}
                       disabled={items.length <= 1}
                     >
@@ -310,7 +383,7 @@ export default function CostCalculator({
           </button>
         </section>
 
-        {/* Optional projection */}
+        {/* Herd projection */}
         <section className="rounded-xl border border-navy/8 bg-white p-6">
           <h2 className="mb-4 text-lg font-medium text-deep-navy">
             {locale === 'ar' ? 'الإسقاط على القطيع (اختياري)' : 'Herd projection (optional)'}
@@ -360,6 +433,65 @@ export default function CostCalculator({
           </div>
         </section>
 
+        {/* Breakeven */}
+        <section className="rounded-xl border border-navy/8 bg-white p-6">
+          <h2 className="mb-1 text-lg font-medium text-deep-navy">
+            {locale === 'ar' ? 'تحليل الربحية (اختياري)' : 'Breakeven analysis (optional)'}
+          </h2>
+          <p className="mb-4 text-xs text-navy-200">
+            {locale === 'ar'
+              ? 'دخّل معامل التحويل وسعر بيع الكيلو علشان تشوف هتكسب ولا تخسر.'
+              : 'Enter your FCR and selling price per kg to see your margin.'}
+          </p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="block">
+              <span className="mb-1 block text-xs text-navy-200">
+                {locale === 'ar' ? 'نوع المنتج' : 'Output kind'}
+              </span>
+              <select
+                value={outputKind}
+                onChange={(e) => setOutputKind(e.target.value as OutputKind)}
+                className="w-full rounded-lg border border-navy/10 bg-paper-white px-3 py-2 text-sm text-deep-navy focus:border-wheat-gold focus:outline-none"
+              >
+                {(Object.keys(OUTPUT_KIND_LABELS) as OutputKind[]).map((k) => (
+                  <option key={k} value={k}>
+                    {OUTPUT_KIND_LABELS[k][locale === 'ar' ? 'ar' : 'en']}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs text-navy-200">
+                {locale === 'ar' ? 'معامل التحويل (FCR)' : 'FCR (kg feed / kg output)'}
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={fcr || ''}
+                onChange={(e) => setFcr(clampNonNegative(Number(e.target.value)))}
+                min={0}
+                step={0.1}
+                placeholder={outputKind === 'milk' ? '0.5' : outputKind === 'eggs' ? '2.5' : '6.5'}
+                className="w-full rounded-lg border border-navy/10 bg-paper-white px-3 py-2 text-sm text-deep-navy focus:border-wheat-gold focus:outline-none"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs text-navy-200">
+                {locale === 'ar' ? 'سعر بيع الكيلو (EGP)' : 'Selling price (EGP/kg)'}
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={outputPricePerKg || ''}
+                onChange={(e) => setOutputPricePerKg(clampNonNegative(Number(e.target.value)))}
+                min={0}
+                step={0.5}
+                className="w-full rounded-lg border border-navy/10 bg-paper-white px-3 py-2 text-sm text-deep-navy focus:border-wheat-gold focus:outline-none"
+              />
+            </label>
+          </div>
+        </section>
+
         {/* Save formula */}
         <section className="rounded-xl border border-navy/8 bg-white p-6">
           <h2 className="mb-4 text-lg font-medium text-deep-navy">
@@ -396,74 +528,160 @@ export default function CostCalculator({
               {locale === 'ar' ? 'مسح' : 'Clear'}
             </button>
           </div>
-          <p className="mt-2 text-xs text-navy-200">
-            {locale === 'ar'
-              ? 'الوصفات محفوظة على هذا الجهاز فقط. مزامنة عبر الأجهزة قريباً.'
-              : 'Formulas saved on this device only. Cross-device sync coming soon.'}
-          </p>
+
+          {/* Pro upgrade callout — replaces the buried "saved on this device" line */}
+          <div className="mt-4 flex flex-col gap-2 rounded-lg border border-wheat-gold/30 bg-brand-50 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-deep-navy/90">
+              {locale === 'ar'
+                ? '🔒 وصفاتك دلوقتي على الجهاز ده فقط.'
+                : '🔒 Your formulas are stored on this device only.'}
+            </p>
+            <Link
+              href={`/${locale}/pricing`}
+              className="font-medium text-wheat-gold hover:opacity-80"
+            >
+              {locale === 'ar'
+                ? 'فعّل المزامنة عبر الأجهزة مع Pro ←'
+                : 'Sync across devices with Pro →'}
+            </Link>
+          </div>
         </section>
       </div>
 
       {/* ── Sidebar: results + saved list ─────────────────────────────── */}
       <aside className="space-y-6">
         <section className="rounded-xl border border-wheat-gold/30 bg-brand-50 p-6">
-          <h3 className="mb-4 text-sm font-medium uppercase tracking-wide text-deep-navy/80">
-            {locale === 'ar' ? 'النتائج' : 'Results'}
-          </h3>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-medium text-deep-navy/80">
+              {locale === 'ar' ? 'النتائج' : 'Results'}
+            </h3>
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-harvest-green/10 px-2 py-0.5 text-[11px] text-harvest-green"
+              title={lastUpdatedISO ?? undefined}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-harvest-green" aria-hidden />
+              {locale === 'ar' ? 'محدّث ' : 'updated '}
+              {relativeFreshness(lastUpdatedISO, locale)}
+            </span>
+          </div>
+
           <dl className="space-y-3">
-            <div>
-              <dt className="text-xs text-navy-200">
-                {locale === 'ar' ? 'تكلفة الطن' : 'Cost per ton'}
-              </dt>
-              <dd className="text-2xl font-semibold tabular-nums text-deep-navy">
-                {fmt(costPerTon)}{' '}
-                <span className="text-sm font-normal text-navy-200">EGP</span>
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-navy-200">
-                {locale === 'ar' ? 'إجمالي تكلفة الخلطة' : 'Total mix cost'}
-              </dt>
-              <dd className="text-xl font-medium tabular-nums text-deep-navy">
-                {fmt(totalCost)}{' '}
-                <span className="text-sm font-normal text-navy-200">EGP</span>
-              </dd>
-            </div>
-            {dailyKg > 0 && (
+            {/* Hero stat: monthly cost when herd is set, otherwise cost per ton. */}
+            {heroIsMonthly ? (
               <>
-                <hr className="border-navy/10" />
                 <div>
                   <dt className="text-xs text-navy-200">
-                    {locale === 'ar' ? 'استهلاك يومي' : 'Daily consumption'}
+                    {locale === 'ar' ? 'تكلفة شهرية متوقعة (٣٠ يوم)' : 'Projected monthly cost (30 days)'}
                   </dt>
-                  <dd className="text-base tabular-nums text-deep-navy">
-                    {fmt(dailyKg)}{' '}
-                    <span className="text-sm font-normal text-navy-200">
-                      {locale === 'ar' ? 'كجم/يوم' : 'kg/day'}
-                    </span>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-navy-200">
-                    {locale === 'ar' ? 'تكلفة يومية' : 'Daily cost'}
-                  </dt>
-                  <dd className="text-xl font-medium tabular-nums text-deep-navy">
-                    {fmt(dailyCost)}{' '}
-                    <span className="text-sm font-normal text-navy-200">EGP</span>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-navy-200">
-                    {locale === 'ar' ? 'تكلفة شهرية (٣٠ يوم)' : 'Monthly cost (30 days)'}
-                  </dt>
-                  <dd className="text-xl font-medium tabular-nums text-wheat-gold">
+                  <dd className="text-3xl font-semibold tabular-nums text-deep-navy">
                     {fmt(monthlyCost)}{' '}
+                    <span className="text-base font-normal text-navy-200">EGP</span>
+                  </dd>
+                </div>
+                <div className="grid grid-cols-2 gap-3 border-t border-navy/10 pt-3">
+                  <div>
+                    <dt className="text-xs text-navy-200">
+                      {locale === 'ar' ? 'تكلفة يومية' : 'Daily cost'}
+                    </dt>
+                    <dd className="text-base font-medium tabular-nums text-deep-navy">
+                      {fmt(dailyCost)}{' '}
+                      <span className="text-xs font-normal text-navy-200">EGP</span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-navy-200">
+                      {locale === 'ar' ? 'تكلفة الطن' : 'Cost per ton'}
+                    </dt>
+                    <dd className="text-base font-medium tabular-nums text-deep-navy">
+                      {fmt(costPerTon)}{' '}
+                      <span className="text-xs font-normal text-navy-200">EGP</span>
+                    </dd>
+                  </div>
+                  <div className="col-span-2">
+                    <dt className="text-xs text-navy-200">
+                      {locale === 'ar' ? 'استهلاك يومي' : 'Daily consumption'}
+                    </dt>
+                    <dd className="text-sm tabular-nums text-deep-navy">
+                      {fmt(dailyKg)}{' '}
+                      <span className="text-xs font-normal text-navy-200">
+                        {locale === 'ar' ? 'كجم/يوم' : 'kg/day'}
+                      </span>
+                    </dd>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <dt className="text-xs text-navy-200">
+                    {locale === 'ar' ? 'تكلفة الطن' : 'Cost per ton'}
+                  </dt>
+                  <dd className="text-3xl font-semibold tabular-nums text-deep-navy">
+                    {fmt(costPerTon)}{' '}
+                    <span className="text-base font-normal text-navy-200">EGP</span>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-navy-200">
+                    {locale === 'ar' ? 'إجمالي تكلفة الخلطة' : 'Total mix cost'}
+                  </dt>
+                  <dd className="text-lg font-medium tabular-nums text-deep-navy">
+                    {fmt(totalCost)}{' '}
                     <span className="text-sm font-normal text-navy-200">EGP</span>
                   </dd>
                 </div>
               </>
             )}
+
+            {/* Breakeven block */}
+            {showBreakeven && (
+              <div className="border-t border-navy/10 pt-3">
+                <dt className="mb-2 text-xs text-navy-200">
+                  {locale === 'ar' ? 'تحليل الربحية' : 'Profitability'}
+                </dt>
+                <div className="space-y-2">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-navy-200">
+                      {locale === 'ar' ? 'تكلفة كيلو ' : 'Cost per kg of '}
+                      {OUTPUT_KIND_LABELS[outputKind][locale === 'ar' ? 'ar' : 'en']}
+                    </span>
+                    <span className="text-sm font-medium tabular-nums text-deep-navy">
+                      {fmt2(costPerKgOutput)} EGP
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-navy-200">
+                      {locale === 'ar' ? 'هامش الربح/كيلو' : 'Margin per kg'}
+                    </span>
+                    <span
+                      className={`text-sm font-medium tabular-nums ${
+                        marginPerKg >= 0 ? 'text-harvest-green' : 'text-alert-red'
+                      }`}
+                    >
+                      {marginPerKg >= 0 ? '+' : ''}
+                      {fmt2(marginPerKg)} EGP
+                    </span>
+                  </div>
+                  <div
+                    className={`rounded-md px-3 py-2 text-xs font-medium ${
+                      marginPerKg >= 0
+                        ? 'bg-harvest-green/10 text-harvest-green'
+                        : 'bg-alert-red/10 text-alert-red'
+                    }`}
+                  >
+                    {marginPerKg >= 0
+                      ? locale === 'ar'
+                        ? `✓ ربح ${fmt2(marginPercent)}٪ على البيع`
+                        : `✓ Profit margin ${fmt2(marginPercent)}%`
+                      : locale === 'ar'
+                        ? `✗ خسارة ${fmt2(Math.abs(marginPercent))}٪ — لازم سعر بيع أعلى أو خلطة أرخص`
+                        : `✗ Loss ${fmt2(Math.abs(marginPercent))}% — raise selling price or cheaper mix`}
+                  </div>
+                </div>
+              </div>
+            )}
           </dl>
+
           {!percentValid && hasAnyItem && (
             <p className="mt-4 rounded-lg bg-alert-red/10 px-3 py-2 text-xs text-alert-red">
               {locale === 'ar'
@@ -475,7 +693,7 @@ export default function CostCalculator({
 
         {saved.length > 0 && (
           <section className="rounded-xl border border-navy/8 bg-white p-6">
-            <h3 className="mb-4 text-sm font-medium uppercase tracking-wide text-deep-navy/80">
+            <h3 className="mb-4 text-sm font-medium text-deep-navy/80">
               {locale === 'ar' ? 'وصفاتي المحفوظة' : 'Saved formulas'}
             </h3>
             <ul className="space-y-2">
@@ -491,8 +709,7 @@ export default function CostCalculator({
                   >
                     {f.name}
                     <span className="ms-2 text-xs text-navy-200">
-                      ({f.items.length}{' '}
-                      {locale === 'ar' ? 'مكوّن' : 'items'})
+                      ({f.items.length} {locale === 'ar' ? 'مكوّن' : 'items'})
                     </span>
                   </button>
                   <button
@@ -501,7 +718,21 @@ export default function CostCalculator({
                     className="text-navy-200 transition hover:text-alert-red"
                     aria-label={locale === 'ar' ? 'حذف' : 'Delete'}
                   >
-                    ×
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                    </svg>
                   </button>
                 </li>
               ))}

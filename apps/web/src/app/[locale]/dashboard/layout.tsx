@@ -5,6 +5,7 @@ import { BrandMark, LangToggle, Button } from '@makayeel/ui';
 import { auth, signOut } from '@/auth';
 import { isLocale, type Locale } from '@makayeel/i18n';
 import { notFound } from 'next/navigation';
+import DashboardNav from '@/components/dashboard-nav';
 
 export default async function DashboardLayout({
   children,
@@ -31,28 +32,12 @@ export default async function DashboardLayout({
           <Link href={`/${locale}/dashboard`} aria-label="Dashboard home">
             <BrandMark />
           </Link>
-          <nav className="hidden items-center gap-6 md:flex">
-            <Link href={`/${locale}/dashboard`} className="text-sm font-medium text-deep-navy hover:opacity-70">
-              {t('dashboard')}
-            </Link>
-            <Link href={`/${locale}/dashboard/cost`} className="text-sm text-deep-navy hover:opacity-70">
-              {locale === 'ar' ? 'التكلفة' : 'Cost'}
-            </Link>
-            <Link href={`/${locale}/dashboard/alerts`} className="text-sm text-deep-navy hover:opacity-70">
-              {locale === 'ar' ? 'التنبيهات' : 'Alerts'}
-            </Link>
-            <Link href={`/${locale}/dashboard/api-keys`} className="text-sm text-deep-navy hover:opacity-70">
-              API
-            </Link>
-            <Link href={`/${locale}/dashboard/settings`} className="text-sm text-deep-navy hover:opacity-70">
-              {locale === 'ar' ? 'الإعدادات' : 'Settings'}
-            </Link>
-            {isAdmin && (
-              <Link href={`/${locale}/admin/prices`} className="text-sm font-medium text-wheat-gold hover:opacity-80">
-                {t('admin')}
-              </Link>
-            )}
-          </nav>
+          <DashboardNav
+            locale={locale}
+            isAdmin={isAdmin}
+            dashboardLabel={t('dashboard')}
+            adminLabel={t('admin')}
+          />
           <div className="flex items-center gap-2">
             <LangToggle current={locale} />
             <form
