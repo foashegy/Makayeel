@@ -12,8 +12,13 @@ const steps = [
   'pnpm install --frozen-lockfile',
   'pnpm --filter @makayeel/db generate',
   'pnpm --filter @makayeel/db migrate:deploy',
-  'pnpm --filter @makayeel/web build',
 ];
+
+if (process.env.SEED_DB === '1') {
+  steps.push('pnpm --filter @makayeel/db seed');
+}
+
+steps.push('pnpm --filter @makayeel/web build');
 
 for (const cmd of steps) {
   console.log(`\n[netlify-build] $ ${cmd}`);
