@@ -181,6 +181,11 @@ model Price {
   date        DateTime @db.Date
   notes       String?
   enteredById String?
+  // Provenance: was this price observed/measured, or did we estimate it because
+  // no source quoted this commodity today? Estimated rows render with a badge.
+  isEstimated Boolean  @default(false)
+  // Free-text reference to where the number came from (e.g. "VetPen 28-Apr-2026").
+  sourceRef   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

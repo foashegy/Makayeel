@@ -33,6 +33,8 @@ export interface TodayPriceRow {
   previous: number | null;
   unit: string;
   date: string;
+  isEstimated: boolean;
+  sourceRef: string | null;
 }
 
 export async function getTodayPrices(options?: {
@@ -91,6 +93,8 @@ export async function getTodayPrices(options?: {
     previous: prevMap.get(`${r.commodityId}|${r.sourceId}`) ?? null,
     unit: r.commodity.unit,
     date: r.date.toISOString(),
+    isEstimated: r.isEstimated,
+    sourceRef: r.sourceRef,
   }));
 }
 

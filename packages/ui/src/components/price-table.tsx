@@ -26,6 +26,8 @@ export interface PriceTableRow {
   previous: Numeric | null;
   unit: string;
   date: string;
+  isEstimated?: boolean;
+  sourceRef?: string | null;
 }
 
 interface PriceTableProps {
@@ -82,6 +84,14 @@ export function PriceTable({ rows, locale, labels, emptyLabel }: PriceTableProps
                       size="sm"
                     />
                     <span className="font-medium text-deep-navy">{name}</span>
+                    {row.isEstimated ? (
+                      <span
+                        title={row.sourceRef ?? ''}
+                        className="rounded-full border border-amber-400/60 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700"
+                      >
+                        {locale === 'ar' ? 'تقدير' : 'estimate'}
+                      </span>
+                    ) : null}
                   </Link>
                 </td>
                 <td className="px-4 py-3">
