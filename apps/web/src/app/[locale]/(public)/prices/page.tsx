@@ -52,11 +52,12 @@ export default async function PricesPage({
     arr.push(r);
     groups.set(r.commoditySlug, arr);
   }
-  const median = (xs: number[]) => {
+  const median = (xs: number[]): number => {
     if (xs.length === 0) return 0;
     const s = [...xs].sort((a, b) => a - b);
     const m = Math.floor(s.length / 2);
-    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    if (s.length % 2) return s[m]!;
+    return ((s[m - 1] ?? 0) + (s[m] ?? 0)) / 2;
   };
   const summary: Summary[] = [...groups.entries()].map(([slug, gs]) => {
     const values = gs.map((g) => g.value);
