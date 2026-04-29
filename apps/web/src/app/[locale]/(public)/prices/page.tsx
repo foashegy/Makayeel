@@ -59,22 +59,24 @@ export default async function PricesPage({
     if (s.length % 2) return s[m]!;
     return ((s[m - 1] ?? 0) + (s[m] ?? 0)) / 2;
   };
-  const summary: Summary[] = [...groups.entries()].map(([slug, gs]) => {
+  const summary: Summary[] = [...groups.entries()].flatMap(([slug, gs]) => {
+    const head = gs[0];
+    if (!head) return [];
     const values = gs.map((g) => g.value);
     const prev = gs.map((g) => g.previous).filter((p): p is number => p != null);
-    return {
+    return [{
       slug,
-      iconKey: gs[0].commodityIconKey,
-      nameAr: gs[0].commodityNameAr,
-      nameEn: gs[0].commodityNameEn,
-      unit: gs[0].unit,
+      iconKey: head.commodityIconKey,
+      nameAr: head.commodityNameAr,
+      nameEn: head.commodityNameEn,
+      unit: head.unit,
       median: median(values),
       min: Math.min(...values),
       max: Math.max(...values),
       medianPrev: prev.length ? median(prev) : null,
       isEstimated: gs.some((g) => g.isEstimated),
       sourceRef: gs.find((g) => g.sourceRef)?.sourceRef ?? null,
-    };
+    }];
   });
 
   const tableRows: PriceTableRow[] = rows.map((r) => ({
