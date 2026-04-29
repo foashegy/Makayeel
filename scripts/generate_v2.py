@@ -221,7 +221,7 @@ def compose_premium_dark(bg_path: str, out: Path) -> None:
     draw_text_centered(d, "makayeel.com", 942, font(FONT_BLACK, 56), CHARCOAL)
 
     # Phone line
-    draw_text_centered(d, ar("واتساب  01222203810"), 1035, font(FONT_BOLD, 26), CREAM)
+    draw_text_centered(d, ar("واتساب 01555001688  •  اتصال 01222203810"), 1035, font(FONT_BOLD, 22), CREAM)
 
     img.save(out)
     print(f"[compose] {out}")
@@ -297,7 +297,7 @@ def compose_data_dashboard(bg_path: str, out: Path) -> None:
     d.rectangle([0, 880, 1080, 1080], fill=NAVY)
 
     # WhatsApp = HERO CTA (green pill, large)
-    wa_text = ar("واتساب  01222203810")
+    wa_text = ar("واتساب  01555001688")
     f_wa = font(FONT_BLACK, 38)
     bbox = d.textbbox((0, 0), wa_text, font=f_wa)
     wa_w = bbox[2] - bbox[0] + 80
@@ -357,7 +357,7 @@ def compose_field_hero(bg_path: str, out: Path) -> None:
 
     # Bottom CTA on solid navy strip
     draw_text_centered(d, "makayeel.com", 910, font(FONT_BLACK, 64), CREAM)
-    draw_text_centered(d, ar("واتساب  01222203810"), 1000, font(FONT_BOLD, 30), GOLD)
+    draw_text_centered(d, ar("واتساب 01555001688  •  اتصال 01222203810"), 1000, font(FONT_BOLD, 24), GOLD)
 
     img.save(out)
     print(f"[compose] {out}")
@@ -402,7 +402,7 @@ def compose_minimal_modern(bg_path: str, out: Path) -> None:
 
     # Bottom domain
     draw_text_centered(d, "makayeel.com", 940, font(FONT_BLACK, 48), CREAM)
-    draw_text_centered(d, ar("واتساب  01222203810"), 1010, font(FONT_REG, 26), (180, 175, 160))
+    draw_text_centered(d, ar("واتساب 01555001688  •  اتصال 01222203810"), 1010, font(FONT_REG, 22), (180, 175, 160))
 
     img.save(out)
     print(f"[compose] {out}")

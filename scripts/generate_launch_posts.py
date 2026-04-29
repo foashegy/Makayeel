@@ -33,6 +33,7 @@ BRAND_BLOCK = """
 BRAND: Makayeel (مكاييل) — Egyptian feed-grain prices platform.
 Tagline: سعر يومك من الحقل (Today's price, straight from the field)
 Domain: makayeel.com
+WhatsApp: 01555001688
 Phone: 01222203810
 
 EXACT BRAND COLORS (do not improvise):
@@ -59,7 +60,8 @@ CONTENT TO INCLUDE:
 - Tagline: سعر يومك من الحقل
 - 4 product bullets: ذرة • صويا • ردة • شعير
 - CTA: makayeel.com
-- WhatsApp: 01222203810
+- WhatsApp: 01555001688
+- Phone: 01222203810
 """
 
 
@@ -85,7 +87,7 @@ LOWER MIDDLE: 4 product bullets right-aligned with small gold checkmarks ✓:
 ✓ تحديث يومي 7 صباحاً
 
 BOTTOM: full-width gold #D4A24C bar 120px tall containing centered charcoal #2A2A2A bold text "makayeel.com" 44pt.
-Below bar small cream text centered: "📱 واتساب 01222203810"
+Below bar small cream text centered: "📱 واتساب 01555001688  •  اتصال 01222203810"
 
 Premium fintech feel × agricultural authority. Clean, generous whitespace. Mobile-readable.
 """,
@@ -103,7 +105,7 @@ CENTER (60%): a realistic mockup of a phone screen / dashboard card showing 4 co
 - Card has rounded corners, soft shadow, paper-white #FAFAF5 background, inside the cream area
 - Above the card a small gold tag: "أسعار اليوم — السبت"
 
-BOTTOM (15%): gold #D4A24C bar with charcoal text "makayeel.com  •  واتساب 01222203810"
+BOTTOM (15%): gold #D4A24C bar with charcoal text "makayeel.com  •  واتساب 01555001688  •  اتصال 01222203810"
 
 Feel: a real SaaS product screenshot, builds trust through showing the product. Clean. Premium. Mobile-first.
 """,
@@ -123,7 +125,7 @@ CENTER-LEFT (RTL so text reads right-to-left starting from right):
 BOTTOM 25%: solid deep navy #1A2E40 strip with content:
 - Right side: 4 small commodity icons in gold (corn cob, soybean, wheat husk, barley) with Arabic labels in cream
 - Left side: bold gold #D4A24C button-style block with charcoal text "makayeel.com" 40pt
-- Below button cream small text: "واتساب 01222203810"
+- Below button cream small text: "واتساب 01555001688  •  اتصال 01222203810"
 
 Top-right small pill: harvest green "متاح الآن"
 
@@ -147,7 +149,7 @@ CENTER (vertically and horizontally):
 
 VERY BOTTOM: simple cream text centered, no bar, no decoration:
 - "makayeel.com" in JetBrains-Mono-style font 36pt cream
-- below it small dim cream "واتساب 01222203810" 22pt
+- below it small dim cream "واتساب 01555001688  •  اتصال 01222203810" 22pt
 
 NO bullets, NO badges, NO icons besides the single wheat icon at top.
 

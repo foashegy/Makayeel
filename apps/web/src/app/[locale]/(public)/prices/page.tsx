@@ -123,9 +123,9 @@ export default async function PricesPage({
       }).format(latestUpdated)
     : null;
 
-  // WhatsApp CTA — ATEN STUDIO ops number; mill owners trust a phone number more
+  // WhatsApp CTA — Makayeel main line; mill owners trust a phone number more
   // than a contact form (per Risk + Product/UX seat memos, 29 Apr 2026 board).
-  const waNumber = '201557999780';
+  const waNumber = '201555001688';
   const waMessage = encodeURIComponent(
     locale === 'ar'
       ? 'السلام عليكم — استفسار عن أسعار خامات الأعلاف'

@@ -181,7 +181,7 @@ def compose_dashboard_story(out: Path) -> None:
     d.rectangle([0, 1660, W, H], fill=NAVY)
 
     # WhatsApp HERO pill
-    wa_text = ar("واتساب  01222203810")
+    wa_text = ar("واتساب  01555001688")
     f_wa = font(FONT_BLACK, 46)
     bbox = d.textbbox((0, 0), wa_text, font=f_wa)
     wa_w = bbox[2] - bbox[0] + 100
@@ -242,7 +242,7 @@ def compose_field_hero_story(bg_path: str, out: Path) -> None:
 
     # Bottom CTA
     draw_text_centered(d, "makayeel.com", 1640, font(FONT_BLACK, 80), CREAM)
-    draw_text_centered(d, ar("واتساب  01222203810"), 1760, font(FONT_BOLD, 38), GOLD)
+    draw_text_centered(d, ar("واتساب 01555001688  •  اتصال 01222203810"), 1760, font(FONT_BOLD, 32), GOLD)
 
     # Swipe-up hint (Stories convention)
     draw_text_centered(d, ar("↑  افتح الموقع"), 1860, font(FONT_BOLD, 30), CREAM)
@@ -278,7 +278,7 @@ def compose_minimal_modern_story(out: Path) -> None:
 
     # Bottom domain
     draw_text_centered(d, "makayeel.com", 1700, font(FONT_BLACK, 64), CREAM)
-    draw_text_centered(d, ar("واتساب  01222203810"), 1790, font(FONT_REG, 32), (180, 175, 160))
+    draw_text_centered(d, ar("واتساب 01555001688  •  اتصال 01222203810"), 1790, font(FONT_REG, 28), (180, 175, 160))
 
     img.save(out)
     print(f"[compose] {out}")

@@ -34,7 +34,9 @@ function AboutAr() {
       </p>
       <h2 className="mt-8 text-xl font-medium text-deep-navy">تواصل</h2>
       <p className="text-charcoal/80">
-        واتساب: <span className="ltr mono">+20 100 148 3186</span>
+        واتساب: <span className="ltr mono">+20 155 500 1688</span>
+        <br />
+        اتصال: <span className="ltr mono">+20 122 220 3810</span>
         <br />
         بريد: <span className="ltr">hello@makayeel.com</span>
       </p>
@@ -61,7 +63,9 @@ function AboutEn() {
       </p>
       <h2 className="mt-8 text-xl font-medium text-deep-navy">Contact</h2>
       <p className="text-charcoal/80">
-        WhatsApp: <span className="mono">+20 100 148 3186</span>
+        WhatsApp: <span className="mono">+20 155 500 1688</span>
+        <br />
+        Phone: <span className="mono">+20 122 220 3810</span>
         <br />
         Email: hello@makayeel.com
       </p>
