@@ -27,6 +27,9 @@ export async function helpHandler(ctx: BotContext) {
         '• `/link CODE` — اربط حسابك',
         '• `/لغة` — غيّر اللغة',
         '• `/help` — المساعدة',
+        '',
+        '📱 واتساب: `01555001688`',
+        '📞 اتصال: `01222203810`',
       ].join('\n')
     : [
         '*Makayeel commands*',
@@ -40,6 +43,9 @@ export async function helpHandler(ctx: BotContext) {
         '• `/link CODE` — link your account',
         '• `/lang` — toggle language',
         '• `/help` — this help',
+        '',
+        '📱 WhatsApp: `01555001688`',
+        '📞 Phone: `01222203810`',
       ].join('\n');
   await ctx.reply(text.replace(/\./g, '\\.'), { parse_mode: 'MarkdownV2' });
 }

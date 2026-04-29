@@ -24,6 +24,9 @@ export async function startHandler(ctx: BotContext) {
         `• \`/تنبيه ذرة 14500\` — تنبيه سعر`,
         ``,
         `للـ /تنبيهات، اربط حسابك الأول\\.`,
+        ``,
+        `📱 واتساب: \`01555001688\``,
+        `📞 اتصال: \`01222203810\``,
       ].join('\n')
     : [
         `Welcome to *Makayeel*\\.`,
@@ -37,6 +40,9 @@ export async function startHandler(ctx: BotContext) {
         `• \`/alert corn 14500\` — price alert`,
         ``,
         `Link your account to use /alerts\\.`,
+        ``,
+        `📱 WhatsApp: \`01555001688\``,
+        `📞 Phone: \`01222203810\``,
       ].join('\n');
 
   await ctx.reply(text, { parse_mode: 'MarkdownV2', reply_markup: kb });
