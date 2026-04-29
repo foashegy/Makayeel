@@ -109,6 +109,26 @@ const COMMODITIES = [
     basePrice: 16800,
     volatility: 250,
   },
+  {
+    slug: 'soybean-meal-44',
+    nameAr: 'كسب فول الصويا 44%',
+    nameEn: 'Soybean Meal 44%',
+    category: CommodityCategory.PROTEINS,
+    iconKey: 'soy',
+    displayOrder: 9,
+    basePrice: 24000,
+    volatility: 350,
+  },
+  {
+    slug: 'glutofeed',
+    nameAr: 'جلوتوفيد',
+    nameEn: 'Glutofeed',
+    category: CommodityCategory.BYPRODUCTS,
+    iconKey: 'corn',
+    displayOrder: 10,
+    basePrice: 14500,
+    volatility: 200,
+  },
 ] as const;
 
 // Per-source multiplier — ports typically cheapest (bulk), wholesale +3–5%,

@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server';
-import { PriceTable, type PriceTableRow } from '@makayeel/ui';
+import { PriceTable, type PriceTableRow, DeltaBadge, CommodityIcon, formatPrice } from '@makayeel/ui';
 import { getTodayPrices } from '@/lib/queries';
 import type { Locale } from '@makayeel/i18n';
 import { isLocale } from '@makayeel/i18n';
@@ -30,6 +30,51 @@ export default async function PricesPage({
   const t = await getTranslations({ locale, namespace: 'prices' });
   const active = (category?.toUpperCase() ?? null) as CommodityCategory | null;
   const rows = await getTodayPrices(active ? { category: active } : undefined);
+
+  // Per-commodity summary: median price, range, delta, any estimated source.
+  // This is the "buyer-think" view (Product/UX seat) — one number per commodity.
+  type Summary = {
+    slug: string;
+    iconKey: string | null;
+    nameAr: string;
+    nameEn: string;
+    unit: string;
+    median: number;
+    min: number;
+    max: number;
+    medianPrev: number | null;
+    isEstimated: boolean;
+    sourceRef: string | null;
+  };
+  const groups = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const arr = groups.get(r.commoditySlug) ?? [];
+    arr.push(r);
+    groups.set(r.commoditySlug, arr);
+  }
+  const median = (xs: number[]) => {
+    if (xs.length === 0) return 0;
+    const s = [...xs].sort((a, b) => a - b);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
+  const summary: Summary[] = [...groups.entries()].map(([slug, gs]) => {
+    const values = gs.map((g) => g.value);
+    const prev = gs.map((g) => g.previous).filter((p): p is number => p != null);
+    return {
+      slug,
+      iconKey: gs[0].commodityIconKey,
+      nameAr: gs[0].commodityNameAr,
+      nameEn: gs[0].commodityNameEn,
+      unit: gs[0].unit,
+      median: median(values),
+      min: Math.min(...values),
+      max: Math.max(...values),
+      medianPrev: prev.length ? median(prev) : null,
+      isEstimated: gs.some((g) => g.isEstimated),
+      sourceRef: gs.find((g) => g.sourceRef)?.sourceRef ?? null,
+    };
+  });
 
   const tableRows: PriceTableRow[] = rows.map((r) => ({
     priceId: r.priceId,
@@ -132,18 +177,69 @@ export default async function PricesPage({
         })}
       </div>
 
-      <PriceTable
-        rows={tableRows}
-        locale={locale}
-        labels={{
-          commodity: t('table.commodity'),
-          source: t('table.source'),
-          price: t('table.price'),
-          delta: t('table.delta'),
-          unit: t('table.unit'),
-        }}
-        emptyLabel={t('noData')}
-      />
+      {/* Summary cards — one per commodity, median + range + delta. */}
+      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {summary.map((s) => {
+          const name = locale === 'ar' ? s.nameAr : s.nameEn;
+          const subtitle = locale === 'ar' ? s.nameEn : s.nameAr;
+          return (
+            <div
+              key={s.slug}
+              className="rounded-2xl border border-navy/8 bg-white p-4 shadow-card transition hover:shadow-card-hover"
+            >
+              <div className="mb-3 flex items-start gap-3">
+                <CommodityIcon slug={s.slug} iconKey={s.iconKey} nameAr={s.nameAr} size="md" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="truncate text-sm font-medium text-deep-navy">{name}</h3>
+                    {s.isEstimated ? (
+                      <span
+                        title={s.sourceRef ?? ''}
+                        className="rounded-full border border-amber-400/60 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                      >
+                        {locale === 'ar' ? 'تقدير' : 'estimate'}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="truncate text-[11px] text-navy-200">{subtitle}</p>
+                </div>
+                <DeltaBadge current={s.median} previous={s.medianPrev} locale={locale} size="sm" />
+              </div>
+              <div className="mb-1 font-mono text-2xl font-medium text-charcoal" data-numeric>
+                {formatPrice(s.median, locale)}
+              </div>
+              <div className="text-[11px] text-navy-200" data-numeric>
+                {locale === 'ar'
+                  ? `النطاق: ${formatPrice(s.min, locale)} – ${formatPrice(s.max, locale)}`
+                  : `Range: ${formatPrice(s.min, locale)} – ${formatPrice(s.max, locale)}`}
+                {' · '}
+                {s.unit}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Detail: full source breakdown for power users. */}
+      <details className="mb-4">
+        <summary className="cursor-pointer rounded-full border border-navy/15 px-4 py-1.5 text-sm font-medium text-deep-navy hover:bg-navy/5 inline-block">
+          {locale === 'ar' ? 'تفاصيل بكل مصدر' : 'Show by source'}
+        </summary>
+        <div className="mt-4">
+          <PriceTable
+            rows={tableRows}
+            locale={locale}
+            labels={{
+              commodity: t('table.commodity'),
+              source: t('table.source'),
+              price: t('table.price'),
+              delta: t('table.delta'),
+              unit: t('table.unit'),
+            }}
+            emptyLabel={t('noData')}
+          />
+        </div>
+      </details>
     </div>
   );
 }
