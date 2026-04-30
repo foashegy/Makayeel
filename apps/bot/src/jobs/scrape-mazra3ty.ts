@@ -1,5 +1,6 @@
 import type { Bot } from 'grammy';
 import type { BotContext } from '../lib/locale';
+import { prisma } from '@makayeel/db';
 import { scrapeRawMaterials, scrapeCompoundFeeds } from '../lib/mazra3ty-scraper';
 import { scrapeElmorshdRawMaterials, scrapeElmorshdCompoundFeeds } from '../lib/elmorshd-scraper';
 import { ensureSource, upsertScrapedProducts } from '../lib/queries';
@@ -47,9 +48,19 @@ async function runOne(
   source: { id: string; slug: string },
   scrape: () => Promise<{ products: ScrapedProduct[]; pageDate?: string | null }>,
   refLabel: string,
+  pageHint: 'raw_materials' | 'compound_feeds',
+  trigger: 'cron' | 'manual',
 ): Promise<SiteResult> {
+  const startedAt = new Date();
+  const t0 = Date.now();
+  let productsRead = 0;
+  let written = 0;
+  let created: string[] = [];
+  let errorMessage: string | null = null;
+
   try {
     const r = await scrape();
+    productsRead = r.products.length;
     const dateSuffix = r.pageDate ? ` (${r.pageDate})` : '';
     const auditSource: 'scraper_mazra3ty' | 'scraper_elmorshd' =
       source.slug === 'elmorshd' ? 'scraper_elmorshd' : 'scraper_mazra3ty';
@@ -66,13 +77,35 @@ async function runOne(
       `${refLabel}${dateSuffix}`,
       { source: auditSource, actorUserId: null },
     );
-    return { written: result.written, created: result.createdCommodities, errors: [] };
+    written = result.written;
+    created = result.createdCommodities;
   } catch (err) {
-    return { written: 0, created: [], errors: [(err as Error).message] };
+    errorMessage = (err as Error).message.slice(0, 500);
   }
+
+  // Log the run (best-effort).
+  try {
+    await prisma.scrapeRun.create({
+      data: {
+        siteSlug: source.slug,
+        pageHint,
+        trigger,
+        durationMs: Date.now() - t0,
+        productsRead,
+        pricesWritten: written,
+        createdSlugs: created,
+        error: errorMessage,
+        startedAt,
+      },
+    });
+  } catch (logErr) {
+    console.error('[scrape-run] failed to log run:', (logErr as Error).message);
+  }
+
+  return { written, created, errors: errorMessage ? [errorMessage] : [] };
 }
 
-export async function runMazra3tyScrape(): Promise<ScrapeRunReport> {
+export async function runMazra3tyScrape(trigger: 'cron' | 'manual' = 'manual'): Promise<ScrapeRunReport> {
   const report: ScrapeRunReport = {
     mazra3ty: { raw: { written: 0, created: [], errors: [] }, feed: { written: 0, created: [], errors: [] } },
     elmorshd: { raw: { written: 0, created: [], errors: [] }, feed: { written: 0, created: [], errors: [] } },
@@ -82,8 +115,8 @@ export async function runMazra3tyScrape(): Promise<ScrapeRunReport> {
     const source = await ensureSource(site.slug, site.nameAr, site.nameEn, 'EXCHANGE');
     const sourceWithSlug = { id: source.id, slug: site.slug };
     const [raw, feed] = await Promise.all([
-      runOne(sourceWithSlug, site.scrapeRaw, `${site.slug} raw`),
-      runOne(sourceWithSlug, site.scrapeFeed, `${site.slug} feed`),
+      runOne(sourceWithSlug, site.scrapeRaw, `${site.slug} raw`, 'raw_materials', trigger),
+      runOne(sourceWithSlug, site.scrapeFeed, `${site.slug} feed`, 'compound_feeds', trigger),
     ]);
     if (site.slug === 'mazra3ty') {
       report.mazra3ty = { raw, feed };
@@ -110,7 +143,7 @@ export async function runMazra3tyScrapeAndNotify(bot: Bot<BotContext>) {
     return;
   }
   console.info('🌾 starting daily price scrape');
-  const report = await runMazra3tyScrape();
+  const report = await runMazra3tyScrape('cron');
   console.info('🌾 scrape result:', JSON.stringify(report));
 
   const lines = ['*📥 سحب الأسعار اليومي*', ''];

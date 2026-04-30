@@ -390,3 +390,32 @@ model VisionQuota {
 
   @@index([userId, date])
 }
+
+/// Append-only log of every scraper run. Lets the admin see when the daily
+/// agent fired, which sites responded, how many prices it wrote, and what
+/// errors (if any) hit. Joined with PriceAudit (`source` field) for full
+/// chain-of-custody on a price's origin.
+model ScrapeRun {
+  id           String   @id @default(cuid())
+  /// 'mazra3ty' | 'elmorshd' | 'poultryexchange' | 'almalnews' | etc.
+  siteSlug     String
+  /// 'raw_materials' | 'compound_feeds'
+  pageHint     String
+  /// 'cron' | 'manual'
+  trigger      String
+  /// Wall-clock duration of the fetch+extract+upsert pipeline.
+  durationMs   Int
+  /// How many products Claude returned (post-Zod-validation).
+  productsRead Int
+  /// How many price rows were written/updated.
+  pricesWritten Int
+  /// Slugs of any commodities auto-created during this run.
+  createdSlugs String[] @default([])
+  /// First error message, truncated. Empty string on success.
+  error        String?
+  startedAt    DateTime
+  finishedAt   DateTime @default(now())
+
+  @@index([siteSlug, startedAt])
+  @@index([startedAt])
+}
