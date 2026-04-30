@@ -44,6 +44,21 @@ export async function POST(req: Request) {
   const commodityMap = new Map(commodities.map((c) => [c.slug, c.id]));
   const sourceMap = new Map(sources.map((s) => [s.slug, s.id]));
 
+  // Capture pre-existing values so we can write a complete before/after row
+  // to PriceAudit. This is the legal trail mills can subpoena.
+  const existing = await prisma.price.findMany({
+    where: {
+      date,
+      commodityId: { in: [...commodityMap.values()] },
+      sourceId: { in: [...sourceMap.values()] },
+    },
+    select: { id: true, commodityId: true, sourceId: true, value: true },
+  });
+  const existingMap = new Map<string, { id: string; value: number }>();
+  for (const e of existing) {
+    existingMap.set(`${e.commodityId}:${e.sourceId}`, { id: e.id, value: Number(e.value) });
+  }
+
   const ops = parsed.data.prices
     .map((p) => {
       const commodityId = commodityMap.get(p.commoditySlug);
@@ -66,5 +81,29 @@ export async function POST(req: Request) {
     .filter((op): op is NonNullable<typeof op> => op !== null);
 
   const saved = await prisma.$transaction(ops);
+
+  // Append-only audit log — non-fatal if the table is unavailable, the
+  // primary write has already committed.
+  const auditRows = parsed.data.prices.flatMap((p) => {
+    const commodityId = commodityMap.get(p.commoditySlug);
+    const sourceId = sourceMap.get(p.sourceSlug);
+    if (!commodityId || !sourceId) return [];
+    const prev = existingMap.get(`${commodityId}:${sourceId}`);
+    return [{
+      priceId: prev?.id ?? null,
+      commoditySlug: p.commoditySlug,
+      sourceSlug: p.sourceSlug,
+      date,
+      oldValue: prev ? prev.value.toFixed(2) : null,
+      newValue: p.value.toFixed(2),
+      source: 'admin_bulk',
+      actorUserId: session.user!.id,
+      note: `bulk POST ${parsed.data.prices.length} rows`,
+    }];
+  });
+  prisma.priceAudit.createMany({ data: auditRows }).catch((err) => {
+    console.error('[audit] admin_bulk write failed:', (err as Error).message);
+  });
+
   return jsonOk({ saved: saved.length, date: date.toISOString().slice(0, 10) });
 }

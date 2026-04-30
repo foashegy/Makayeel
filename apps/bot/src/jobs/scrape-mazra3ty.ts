@@ -44,13 +44,15 @@ const SITES: SiteConfig[] = [
 ];
 
 async function runOne(
-  source: { id: string },
+  source: { id: string; slug: string },
   scrape: () => Promise<{ products: ScrapedProduct[]; pageDate?: string | null }>,
   refLabel: string,
 ): Promise<SiteResult> {
   try {
     const r = await scrape();
     const dateSuffix = r.pageDate ? ` (${r.pageDate})` : '';
+    const auditSource: 'scraper_mazra3ty' | 'scraper_elmorshd' =
+      source.slug === 'elmorshd' ? 'scraper_elmorshd' : 'scraper_mazra3ty';
     const result = await upsertScrapedProducts(
       r.products.map((p) => ({
         nameAr: p.nameAr,
@@ -62,6 +64,7 @@ async function runOne(
       })),
       source.id,
       `${refLabel}${dateSuffix}`,
+      { source: auditSource, actorUserId: null },
     );
     return { written: result.written, created: result.createdCommodities, errors: [] };
   } catch (err) {
@@ -77,9 +80,10 @@ export async function runMazra3tyScrape(): Promise<ScrapeRunReport> {
 
   for (const site of SITES) {
     const source = await ensureSource(site.slug, site.nameAr, site.nameEn, 'EXCHANGE');
+    const sourceWithSlug = { id: source.id, slug: site.slug };
     const [raw, feed] = await Promise.all([
-      runOne(source, site.scrapeRaw, `${site.slug} raw`),
-      runOne(source, site.scrapeFeed, `${site.slug} feed`),
+      runOne(sourceWithSlug, site.scrapeRaw, `${site.slug} raw`),
+      runOne(sourceWithSlug, site.scrapeFeed, `${site.slug} feed`),
     ]);
     if (site.slug === 'mazra3ty') {
       report.mazra3ty = { raw, feed };

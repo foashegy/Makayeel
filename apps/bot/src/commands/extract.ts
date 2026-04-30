@@ -166,6 +166,7 @@ export async function extractCallbackHandler(ctx: BotContext) {
         pending.prices.map((p) => ({ commoditySlug: p.commoditySlug, value: p.value })),
         sourceSlug,
         pending.sourceLabel ?? 'Telegram photo',
+        { source: 'photo_extract', actorUserId: String(ctx.from?.id ?? '') },
       );
       delete ctx.session.pendingExtraction;
       await ctx.answerCallbackQuery({ text: 'اتسجل ✅' });

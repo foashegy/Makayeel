@@ -166,19 +166,82 @@ export async function ensureSource(
   });
 }
 
+/** Audit-log driver. Appends one PriceAudit row per price write — non-fatal
+ * if it fails (we never block a price write on the audit table). The full
+ * before/after pair is captured so disputes can be replayed historically. */
+async function recordPriceAudit(args: {
+  priceId: string | null;
+  commoditySlug: string;
+  sourceSlug: string;
+  date: Date;
+  oldValue: number | null;
+  newValue: number;
+  source: 'admin_bulk' | 'photo_extract' | 'mill_submit' | 'scraper_mazra3ty' | 'scraper_elmorshd';
+  actorUserId: string | null;
+  note?: string;
+}): Promise<void> {
+  try {
+    await prisma.priceAudit.create({
+      data: {
+        priceId: args.priceId,
+        commoditySlug: args.commoditySlug,
+        sourceSlug: args.sourceSlug,
+        date: args.date,
+        oldValue: args.oldValue,
+        newValue: args.newValue,
+        source: args.source,
+        actorUserId: args.actorUserId,
+        note: args.note,
+      },
+    });
+  } catch (err) {
+    console.error('[audit] failed to record price write (non-fatal):', (err as Error).message);
+  }
+}
+
+export type AuditSource =
+  | 'admin_bulk'
+  | 'photo_extract'
+  | 'mill_submit'
+  | 'scraper_mazra3ty'
+  | 'scraper_elmorshd';
+
+interface AuditMeta {
+  source: AuditSource;
+  actorUserId?: string | null;
+}
+
 export async function upsertScrapedProducts(
   products: ScrapedProductUpsert[],
   sourceId: string,
   sourceRef?: string,
+  audit?: AuditMeta,
 ): Promise<{ written: number; createdCommodities: string[] }> {
   const date = cairoToday();
   const createdCommodities: string[] = [];
   let written = 0;
 
+  // Resolve sourceSlug once for audit notes — sources are stable.
+  const sourceRow = await prisma.source.findUnique({ where: { id: sourceId }, select: { slug: true } });
+  const sourceSlug = sourceRow?.slug ?? sourceId;
+
+  // Two batched lookups instead of N: existing commodities by slug, and
+  // existing prices for this (source × date) tuple. Cuts scraper round-trips
+  // from ~4N to ~2 + 2N. Auto-created commodities still happen one-at-a-time
+  // because we need the inserted row, but that's bounded by createdCommodities.
+  const slugs = products.map((p) => p.slug);
+  const existingCommodities = await prisma.commodity.findMany({ where: { slug: { in: slugs } } });
+  const commodityBySlug = new Map(existingCommodities.map((c) => [c.slug, c]));
+
+  let displayOrderCursor: number | null = null;
   for (const p of products) {
-    let commodity = await prisma.commodity.findUnique({ where: { slug: p.slug } });
+    let commodity = commodityBySlug.get(p.slug);
     if (!commodity) {
-      const max = await prisma.commodity.aggregate({ _max: { displayOrder: true } });
+      if (displayOrderCursor === null) {
+        const max = await prisma.commodity.aggregate({ _max: { displayOrder: true } });
+        displayOrderCursor = max._max.displayOrder ?? 0;
+      }
+      displayOrderCursor++;
       commodity = await prisma.commodity.create({
         data: {
           slug: p.slug,
@@ -186,18 +249,49 @@ export async function upsertScrapedProducts(
           nameEn: p.nameEn,
           category: p.category,
           unit: p.unit,
-          displayOrder: (max._max.displayOrder ?? 0) + 1,
+          displayOrder: displayOrderCursor,
         },
       });
+      commodityBySlug.set(p.slug, commodity);
       createdCommodities.push(p.slug);
     }
-    await prisma.price.upsert({
+  }
+
+  // One round-trip for ALL existing prices in this batch.
+  const commodityIds = [...commodityBySlug.values()].map((c) => c.id);
+  const existingPrices = await prisma.price.findMany({
+    where: { sourceId, date, commodityId: { in: commodityIds } },
+    select: { id: true, commodityId: true, value: true },
+  });
+  const existingByCommodityId = new Map(
+    existingPrices.map((e) => [e.commodityId, { id: e.id, value: Number(e.value) }]),
+  );
+
+  for (const p of products) {
+    const commodity = commodityBySlug.get(p.slug);
+    if (!commodity) continue;
+    const prev = existingByCommodityId.get(commodity.id) ?? null;
+    const upserted = await prisma.price.upsert({
       where: {
         commodityId_sourceId_date: { commodityId: commodity.id, sourceId, date },
       },
       create: { commodityId: commodity.id, sourceId, date, value: p.value, sourceRef },
       update: { value: p.value, sourceRef, isEstimated: false },
+      select: { id: true },
     });
+    if (audit) {
+      await recordPriceAudit({
+        priceId: upserted.id,
+        commoditySlug: p.slug,
+        sourceSlug,
+        date,
+        oldValue: prev ? prev.value : null,
+        newValue: p.value,
+        source: audit.source,
+        actorUserId: audit.actorUserId ?? null,
+        note: sourceRef,
+      });
+    }
     written++;
   }
   return { written, createdCommodities };
@@ -207,6 +301,7 @@ export async function upsertPricesForToday(
   prices: PriceUpsert[],
   sourceSlug = 'alex-port',
   sourceRef?: string,
+  audit?: AuditMeta,
 ): Promise<{ written: number; skipped: string[] }> {
   const date = cairoToday();
   const source = await prisma.source.findUnique({ where: { slug: sourceSlug } });
@@ -216,16 +311,40 @@ export async function upsertPricesForToday(
   const commodities = await prisma.commodity.findMany({ where: { slug: { in: slugs } } });
   const bySlug = new Map(commodities.map((c) => [c.slug, c]));
 
+  // Batch-load existing prices so we capture oldValue without N+1 round-trips.
+  const existingPrices = await prisma.price.findMany({
+    where: { sourceId: source.id, date, commodityId: { in: commodities.map((c) => c.id) } },
+    select: { id: true, commodityId: true, value: true },
+  });
+  const existingByCommodityId = new Map(
+    existingPrices.map((e) => [e.commodityId, { id: e.id, value: Number(e.value) }]),
+  );
+
   const skipped: string[] = [];
   let written = 0;
   for (const p of prices) {
     const c = bySlug.get(p.commoditySlug);
     if (!c) { skipped.push(p.commoditySlug); continue; }
-    await prisma.price.upsert({
+    const prev = existingByCommodityId.get(c.id) ?? null;
+    const upserted = await prisma.price.upsert({
       where: { commodityId_sourceId_date: { commodityId: c.id, sourceId: source.id, date } },
       create: { commodityId: c.id, sourceId: source.id, date, value: p.value, sourceRef },
       update: { value: p.value, sourceRef, isEstimated: false },
+      select: { id: true },
     });
+    if (audit) {
+      await recordPriceAudit({
+        priceId: upserted.id,
+        commoditySlug: p.commoditySlug,
+        sourceSlug,
+        date,
+        oldValue: prev ? prev.value : null,
+        newValue: p.value,
+        source: audit.source,
+        actorUserId: audit.actorUserId ?? null,
+        note: sourceRef,
+      });
+    }
     written++;
   }
   return { written, skipped };

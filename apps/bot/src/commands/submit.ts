@@ -185,6 +185,7 @@ export async function submitCallbackHandler(ctx: BotContext) {
         pending.prices.map((p) => ({ commoditySlug: p.commoditySlug, value: p.value })),
         pending.millSourceSlug,
         `submitted_by:${chatId}`,
+        { source: 'mill_submit', actorUserId: linked.id },
       );
       delete ctx.session.pendingSubmission;
       ctx.session.lastSubmissionAt = Date.now();
