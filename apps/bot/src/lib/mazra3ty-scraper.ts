@@ -20,7 +20,7 @@ const ScrapeResultSchema = z.object({
 export type ScrapedProduct = z.infer<typeof ScrapedProductSchema>;
 export type ScrapeResult = z.infer<typeof ScrapeResultSchema>;
 
-function stripHtml(html: string): string {
+export function stripHtml(html: string): string {
   return html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
@@ -38,16 +38,17 @@ async function fetchPage(filter: 7 | 8): Promise<string> {
   return stripHtml(await res.text());
 }
 
-async function extractFromHtml(
+export async function extractFromHtml(
   html: string,
   pageHint: 'raw_materials' | 'compound_feeds',
+  siteName = 'mazra3ty.com',
 ): Promise<ScrapeResult> {
   const categoryHint =
     pageHint === 'raw_materials'
       ? 'الفئة (category) ممكن تكون: GRAINS (ذرة، شعير، قمح)، PROTEINS (كسب صويا، جلوتين)، BYPRODUCTS (ردة، كسر أرز)، OILS (زيت صويا، زيت ذرة).'
       : 'الفئة (category) لازم تكون FINISHED_FEED لكل منتج.';
 
-  const systemPrompt = `أنت مساعد لاستخراج جدول أسعار من HTML لموقع mazra3ty.com المصري.
+  const systemPrompt = `أنت مساعد لاستخراج جدول أسعار من HTML لموقع ${siteName} المصري.
 
 المهمة:
 - ابحث عن جدول الأسعار في الـ HTML.
