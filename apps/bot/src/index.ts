@@ -29,6 +29,7 @@ import {
   deleteAlertCallbackHandler,
 } from './commands/alert';
 import { langHandler, helpHandler } from './commands/lang';
+import { registerExtractHandlers } from './commands/extract';
 import { runDailyDigest } from './jobs/daily-digest';
 import { runAlertPoll } from './jobs/alert-poll';
 
@@ -55,6 +56,9 @@ bot.command(['alert', 'تنبيه'], alertHandler);
 bot.command(['alerts', 'تنبيهاتي'], listAlertsHandler);
 bot.command('link', linkHandler);
 bot.command(['lang', 'لغة', 'اللغة'], langHandler);
+
+// ── Photo extraction (admin only) ──────────────────────────────────────────
+registerExtractHandlers(bot);
 
 // ── Callback queries (inline keyboards) ───────────────────────────────────
 bot.callbackQuery(/^alert:(ABOVE|BELOW):.+:\d+(?:\.\d+)?$/, alertCallbackHandler);

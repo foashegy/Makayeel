@@ -98,3 +98,36 @@ export async function getLinkedUser(chatId: string) {
   });
   return link?.user ?? null;
 }
+
+export interface PriceUpsert {
+  commoditySlug: string;
+  value: number;
+}
+
+export async function upsertPricesForToday(
+  prices: PriceUpsert[],
+  sourceSlug = 'alex-port',
+  sourceRef?: string,
+): Promise<{ written: number; skipped: string[] }> {
+  const date = cairoToday();
+  const source = await prisma.source.findUnique({ where: { slug: sourceSlug } });
+  if (!source) throw new Error(`Source not found: ${sourceSlug}`);
+
+  const slugs = prices.map((p) => p.commoditySlug);
+  const commodities = await prisma.commodity.findMany({ where: { slug: { in: slugs } } });
+  const bySlug = new Map(commodities.map((c) => [c.slug, c]));
+
+  const skipped: string[] = [];
+  let written = 0;
+  for (const p of prices) {
+    const c = bySlug.get(p.commoditySlug);
+    if (!c) { skipped.push(p.commoditySlug); continue; }
+    await prisma.price.upsert({
+      where: { commodityId_sourceId_date: { commodityId: c.id, sourceId: source.id, date } },
+      create: { commodityId: c.id, sourceId: source.id, date, value: p.value, sourceRef },
+      update: { value: p.value, sourceRef, isEstimated: false },
+    });
+    written++;
+  }
+  return { written, skipped };
+}

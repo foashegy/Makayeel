@@ -2,8 +2,15 @@ import type { Context, SessionFlavor } from 'grammy';
 import type { Locale } from '@makayeel/i18n';
 import { prisma } from '@makayeel/db';
 
+export interface PendingExtraction {
+  prices: { commoditySlug: string; value: number; confidence: 'high' | 'medium' | 'low' }[];
+  sourceLabel: string | null;
+  createdAt: number;
+}
+
 export interface BotSession {
   locale: Locale;
+  pendingExtraction?: PendingExtraction;
 }
 
 export type BotContext = Context & SessionFlavor<BotSession>;
