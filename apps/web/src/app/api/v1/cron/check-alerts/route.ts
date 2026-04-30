@@ -34,7 +34,7 @@ export async function GET(req: Request) {
 
   const today = cairoToday();
   const prices = await prisma.price.findMany({
-    where: { date: today },
+    where: { date: today, archivedAt: null },
     include: { commodity: true, source: true },
   });
   if (prices.length === 0) return jsonOk({ fired: 0, reason: 'no-prices-today' });

@@ -11,7 +11,7 @@ import { fmtNum, mdEscape } from '../lib/format';
 export async function runAlertPoll<C extends Context>(bot: Bot<C>) {
   const today = cairoToday();
   const prices = await prisma.price.findMany({
-    where: { date: today },
+    where: { date: today, archivedAt: null },
     select: { commodityId: true, value: true },
   });
   if (prices.length === 0) return;

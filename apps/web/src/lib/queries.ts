@@ -45,6 +45,7 @@ export async function getTodayPrices(options?: {
 
   const where = {
     date: today,
+    archivedAt: null,
     commodity: {
       isActive: true,
       ...(options?.category ? { category: options.category } : {}),
@@ -66,6 +67,7 @@ export async function getTodayPrices(options?: {
   const prevRows = await prisma.price.findMany({
     where: {
       date: yesterday,
+      archivedAt: null,
       commodityId: { in: commodityIds },
       sourceId: { in: sourceIds },
     },
@@ -121,6 +123,7 @@ export async function getMillQuotesForToday() {
   const rows = await prisma.price.findMany({
     where: {
       date: today,
+      archivedAt: null,
       source: { type: 'FACTORY' },
     },
     include: { commodity: true, source: true },
@@ -164,7 +167,7 @@ export async function getMillQuotesForToday() {
 export async function getRecentSparklines(days: number): Promise<Map<string, number[]>> {
   const from = cairoDaysAgo(days);
   const rows = await prisma.price.findMany({
-    where: { date: { gte: from } },
+    where: { date: { gte: from }, archivedAt: null },
     orderBy: { date: 'asc' },
     select: {
       date: true,
@@ -212,7 +215,7 @@ export async function getCommodityHistory(slug: string, days: number) {
   if (!alex) return null;
 
   const prices = await prisma.price.findMany({
-    where: { commodityId: commodity.id, sourceId: alex.id, date: { gte: from } },
+    where: { commodityId: commodity.id, sourceId: alex.id, date: { gte: from }, archivedAt: null },
     orderBy: { date: 'asc' },
     select: { date: true, value: true },
   });
@@ -228,7 +231,7 @@ export async function getCommoditySourceBreakdown(slug: string) {
   const commodity = await prisma.commodity.findUnique({ where: { slug } });
   if (!commodity) return null;
   const rows = await prisma.price.findMany({
-    where: { commodityId: commodity.id, date: today },
+    where: { commodityId: commodity.id, date: today, archivedAt: null },
     include: { source: true },
     orderBy: { source: { slug: 'asc' } },
   });

@@ -21,7 +21,7 @@ export async function barakaHandler(ctx: BotContext) {
   const yesterday = cairoDaysAgo(1);
 
   const todayPrices = await prisma.price.findMany({
-    where: { sourceId: source.id, date: today },
+    where: { sourceId: source.id, date: today, archivedAt: null },
     include: { commodity: true },
     orderBy: { commodity: { displayOrder: 'asc' } },
   });
@@ -37,7 +37,7 @@ export async function barakaHandler(ctx: BotContext) {
   }
 
   const yesterdayPrices = await prisma.price.findMany({
-    where: { sourceId: source.id, date: yesterday },
+    where: { sourceId: source.id, date: yesterday, archivedAt: null },
     select: { commodityId: true, value: true },
   });
   const yMap = new Map<string, number>(

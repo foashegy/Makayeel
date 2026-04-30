@@ -186,6 +186,11 @@ model Price {
   isEstimated Boolean  @default(false)
   // Free-text reference to where the number came from (e.g. "VetPen 28-Apr-2026").
   sourceRef   String?
+  // Soft-delete columns. Reads filter `archivedAt: null` to hide a bad row.
+  // Never blank-out a Price in place — archive it. Audit trail (PriceAudit)
+  // is independent and lives forever.
+  archivedAt     DateTime?
+  archivedReason String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -197,6 +202,7 @@ model Price {
   @@index([date])
   @@index([commodityId, date])
   @@index([sourceId, date])
+  @@index([archivedAt])
 }
 
 // -----------------------------------------------------------------------------

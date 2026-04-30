@@ -39,7 +39,7 @@ export async function getCommoditySnapshot(
 
   // Prefer Alexandria Port; fall back to most recent today across any source.
   const todayRow = await prisma.price.findFirst({
-    where: { commodityId: commodity.id, date: today },
+    where: { commodityId: commodity.id, date: today, archivedAt: null },
     include: { source: true },
     orderBy: [
       { source: { slug: 'asc' } },
@@ -49,7 +49,7 @@ export async function getCommoditySnapshot(
   if (!todayRow) return null;
 
   const yRow = await prisma.price.findFirst({
-    where: { commodityId: commodity.id, sourceId: todayRow.sourceId, date: yesterday },
+    where: { commodityId: commodity.id, sourceId: todayRow.sourceId, date: yesterday, archivedAt: null },
   });
 
   return {
@@ -69,7 +69,7 @@ export async function getCommodityHistory(commoditySlug: string, days: number) {
   const alex = await prisma.source.findUnique({ where: { slug: 'alex-port' } });
   if (!alex) return null;
   const prices = await prisma.price.findMany({
-    where: { commodityId: commodity.id, sourceId: alex.id, date: { gte: from } },
+    where: { commodityId: commodity.id, sourceId: alex.id, date: { gte: from }, archivedAt: null },
     orderBy: { date: 'asc' },
     select: { date: true, value: true },
   });
