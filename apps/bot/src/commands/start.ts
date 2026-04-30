@@ -1,29 +1,34 @@
-import { InlineKeyboard } from 'grammy';
+import { Keyboard } from 'grammy';
 import type { BotContext } from '../lib/locale';
 import { env } from '../env';
 import { mdEscape } from '../lib/format';
 
+/** Persistent reply keyboard — turns the bot into a tap-only experience for
+ * non-technical mill operators. The free-text fallback in index.ts catches
+ * whatever text the buttons emit and routes to the right handler. */
+function mainKeyboard(locale: 'ar' | 'en') {
+  const kb = new Keyboard();
+  if (locale === 'ar') {
+    kb.text('📊 أسعار اليوم').text('🌽 سعر خامة').row()
+      .text('💰 حساب تكلفة').text('🔔 تنبيه').row()
+      .text('🏭 عرض سعري').text('🆘 مساعدة');
+  } else {
+    kb.text("📊 Today's prices").text('🌽 One commodity').row()
+      .text('💰 Cost calc').text('🔔 Alert').row()
+      .text('🏭 Submit my mill').text('🆘 Help');
+  }
+  return kb.resized().persistent();
+}
+
 export async function startHandler(ctx: BotContext) {
   const locale = ctx.session.locale;
-  const linkUrl = `${env.NEXT_PUBLIC_SITE_URL}/${locale}/dashboard/link-telegram`;
-
-  const kb = new InlineKeyboard()
-    .url(locale === 'ar' ? 'ربط حسابي' : 'Link my account', linkUrl)
-    .text(locale === 'ar' ? 'أسعار النهاردة' : "Today's prices", 'cmd:prices');
-
   const text = locale === 'ar'
     ? [
         `أهلًا بك في *مكاييل*\\.`,
         ``,
         `بوت أسعار خامات الأعلاف في السوق المصري — ذرة، فول صويا، نخالة، شعير، وغيرهم\\.`,
         ``,
-        `جرّب:`,
-        `• \`/اسعار\` — أسعار اليوم`,
-        `• \`/سعر ذرة\` — سعر خامة معينة`,
-        `• \`/شارت ذرة 30\` — رسم تاريخي`,
-        `• \`/تنبيه ذرة 14500\` — تنبيه سعر`,
-        ``,
-        `للـ /تنبيهات، اربط حسابك الأول\\.`,
+        `استخدم الأزرار أسفل الشاشة، أو ابعت اسم خامة وأنا أوريك سعرها\\.`,
         ``,
         `📱 واتساب: \`01555001688\``,
         `📞 اتصال: \`01222203810\``,
@@ -33,19 +38,28 @@ export async function startHandler(ctx: BotContext) {
         ``,
         `Egyptian feed\\-grain prices — corn, soybean meal, wheat bran, barley, and more\\.`,
         ``,
-        `Try:`,
-        `• \`/prices\` — today's prices`,
-        `• \`/price corn\` — single commodity`,
-        `• \`/chart corn 30\` — history chart`,
-        `• \`/alert corn 14500\` — price alert`,
-        ``,
-        `Link your account to use /alerts\\.`,
+        `Use the buttons below, or just type a commodity name\\.`,
         ``,
         `📱 WhatsApp: \`01555001688\``,
         `📞 Phone: \`01222203810\``,
       ].join('\n');
 
-  await ctx.reply(text, { parse_mode: 'MarkdownV2', reply_markup: kb });
-  // Avoid lint warning about unused import
+  await ctx.reply(text, { parse_mode: 'MarkdownV2', reply_markup: mainKeyboard(locale) });
   void mdEscape;
 }
+
+/** Map button labels back to their semantic intent — used by the free-text
+ * fallback in index.ts so a user tapping "📊 أسعار اليوم" gets the same
+ * response as typing /اسعار. */
+export function buttonIntent(text: string): 'prices' | 'price' | 'cost' | 'alert' | 'submit' | 'help' | null {
+  const t = text.trim();
+  if (t.startsWith('📊')) return 'prices';
+  if (t.startsWith('🌽')) return 'price';
+  if (t.startsWith('💰')) return 'cost';
+  if (t.startsWith('🔔')) return 'alert';
+  if (t.startsWith('🏭')) return 'submit';
+  if (t.startsWith('🆘')) return 'help';
+  return null;
+}
+
+export { mainKeyboard };

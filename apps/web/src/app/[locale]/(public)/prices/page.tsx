@@ -287,8 +287,8 @@ export default async function PricesPage({
                         <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-wheat-gold/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-wheat-gold">
                           {locale === 'ar' ? '🔥 أكبر حركة اليوم' : '🔥 Top mover today'}
                         </div>
-                        <h3 className="truncate font-display text-2xl text-paper-white">{name}</h3>
-                        <p className="truncate text-xs text-paper-white/60">{subtitle}</p>
+                        <h3 className="font-display text-lg leading-tight text-paper-white sm:text-xl md:text-2xl line-clamp-2">{name}</h3>
+                        <p className="truncate text-[11px] text-paper-white/60 sm:text-xs">{subtitle}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <WatchlistStar slug={s.slug} initialPinned={watchlist.has(s.slug)} signedIn={!!userId} locale={locale} />
@@ -325,38 +325,41 @@ export default async function PricesPage({
               return (
                 <div
                   key={s.slug}
-                  className="rounded-2xl border border-navy/8 bg-white p-5 shadow-card transition hover:shadow-card-hover hover:-translate-y-0.5 dark:border-paper-white/10 dark:bg-[#152535]"
+                  className="rounded-2xl border border-navy/8 bg-white p-4 shadow-card transition hover:shadow-card-hover hover:-translate-y-0.5 dark:border-paper-white/10 dark:bg-[#152535] sm:p-5"
                 >
-                  <div className="mb-4 flex items-start gap-3">
-                    <CommodityIcon slug={s.slug} iconKey={s.iconKey} nameAr={s.nameAr} size="md" />
+                  {/* Mobile-first: name gets its own row at the top, then a
+                      row with icon + accessories below. Desktop hides the
+                      duplicate icon and uses the original 2-col layout. */}
+                  <div className="mb-3 flex items-start gap-2.5">
+                    <CommodityIcon slug={s.slug} iconKey={s.iconKey} nameAr={s.nameAr} size="sm" />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="truncate font-display text-base text-deep-navy dark:text-paper-white">{name}</h3>
-                        {s.isEstimated ? (
-                          <span
-                            title={s.sourceRef ?? ''}
-                            className="rounded-full border border-amber-400/60 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
-                          >
-                            {locale === 'ar' ? 'تقدير' : 'estimate'}
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="truncate text-[11px] text-navy-200">{subtitle}</p>
+                      <h3 className="font-display text-sm leading-tight text-deep-navy dark:text-paper-white sm:text-base line-clamp-2">{name}</h3>
+                      <p className="mt-0.5 truncate text-[10px] text-navy-200 sm:text-[11px]">{subtitle}</p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
+                    <div className="flex shrink-0 items-center gap-1">
+                      {s.isEstimated ? (
+                        <span
+                          title={s.sourceRef ?? ''}
+                          className="rounded-full border border-amber-400/60 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                        >
+                          {locale === 'ar' ? 'تقدير' : 'estimate'}
+                        </span>
+                      ) : null}
                       <WatchlistStar slug={s.slug} initialPinned={watchlist.has(s.slug)} signedIn={!!userId} locale={locale} />
-                      <DeltaBadge current={s.median} previous={s.medianPrev} locale={locale} size="sm" />
                     </div>
                   </div>
-                  <div className="flex items-end justify-between gap-3">
-                    <div className="font-mono text-4xl font-bold leading-none tracking-tight text-deep-navy dark:text-paper-white" data-numeric>
+                  <div className="flex items-end justify-between gap-2">
+                    <div className="font-mono text-3xl font-bold leading-none tracking-tight text-deep-navy dark:text-paper-white sm:text-4xl" data-numeric>
                       {formatPrice(s.median, locale)}
                     </div>
-                    {series.length >= 2 ? (
-                      <div className="ltr shrink-0" dir="ltr">
-                        <Sparkline values={series} width={88} height={28} />
-                      </div>
-                    ) : null}
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <DeltaBadge current={s.median} previous={s.medianPrev} locale={locale} size="sm" />
+                      {series.length >= 2 ? (
+                        <div className="ltr" dir="ltr">
+                          <Sparkline values={series} width={72} height={22} />
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-navy-200" data-numeric>
                     <span>{s.unit}</span>
@@ -412,19 +415,19 @@ export default async function PricesPage({
                   return (
                     <div
                       key={m.slug}
-                      className="rounded-2xl border border-wheat-gold/30 bg-white p-5 shadow-card transition hover:shadow-card-hover hover:-translate-y-0.5 dark:border-wheat-gold/40 dark:bg-[#152535]"
+                      className="rounded-2xl border border-wheat-gold/30 bg-white p-4 shadow-card transition hover:shadow-card-hover hover:-translate-y-0.5 dark:border-wheat-gold/40 dark:bg-[#152535] sm:p-5"
                     >
-                      <div className="mb-3 flex items-start gap-3">
-                        <CommodityIcon slug={m.slug} iconKey={m.iconKey} nameAr={m.nameAr} size="md" />
+                      <div className="mb-3 flex items-start gap-2.5">
+                        <CommodityIcon slug={m.slug} iconKey={m.iconKey} nameAr={m.nameAr} size="sm" />
                         <div className="min-w-0 flex-1">
-                          <h3 className="truncate font-display text-base text-deep-navy dark:text-paper-white">{name}</h3>
-                          <p className="truncate text-[11px] text-navy-200 dark:text-paper-white/55">{subtitle}</p>
+                          <h3 className="font-display text-sm leading-tight text-deep-navy dark:text-paper-white sm:text-base line-clamp-2">{name}</h3>
+                          <p className="mt-0.5 truncate text-[10px] text-navy-200 dark:text-paper-white/55 sm:text-[11px]">{subtitle}</p>
                         </div>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-wheat-gold/15 px-2 py-0.5 text-[11px] font-semibold text-wheat-gold">
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-wheat-gold/15 px-2 py-0.5 text-[11px] font-semibold text-wheat-gold">
                           🏭 {m.millCount}
                         </span>
                       </div>
-                      <div className="font-mono text-3xl font-bold leading-none tracking-tight text-deep-navy dark:text-wheat-gold" data-numeric>
+                      <div className="font-mono text-2xl font-bold leading-none tracking-tight text-deep-navy dark:text-wheat-gold sm:text-3xl" data-numeric>
                         {formatPrice(m.median, locale)}
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-navy-200 dark:text-paper-white/55" data-numeric>

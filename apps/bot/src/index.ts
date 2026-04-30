@@ -84,6 +84,68 @@ bot.callbackQuery('cmd:prices', async (ctx) => {
   await pricesHandler(ctx);
 });
 
+// ── Free-text fallback ─────────────────────────────────────────────────────
+// Non-command text routes here. We first check if it matches a button label
+// from the persistent reply keyboard (most users will tap, not type), then
+// fall back to fuzzy commodity matching, then to a help message.
+import { buttonIntent } from './commands/start';
+
+bot.on('message:text', async (ctx) => {
+  const text = ctx.message.text.trim();
+  if (!text || text.startsWith('/')) return;
+  if (ctx.session.awaitingMillPhoto) return;
+
+  // Button-label routing — turns taps into intents.
+  const intent = buttonIntent(text);
+  if (intent === 'prices') return pricesHandler(ctx);
+  if (intent === 'help') return helpHandler(ctx);
+  if (intent === 'alert') return alertHandler(ctx);
+  if (intent === 'price') {
+    await ctx.reply(ctx.session.locale === 'ar' ? 'اكتب اسم الخامة (مثلاً: ذرة، فول صويا).' : 'Type a commodity (e.g. corn, soybean meal).');
+    return;
+  }
+  if (intent === 'cost') return costHandler(ctx);
+  if (intent === 'submit') {
+    const { submitOpenHandler } = await import('./commands/submit');
+    return submitOpenHandler(ctx);
+  }
+
+  const { getCommodities, getCommoditySnapshot } = await import('./lib/queries');
+  const { matchCommodity } = await import('./lib/fuzzy');
+  const commodities = await getCommodities();
+  const match = matchCommodity(text, commodities);
+  const locale = ctx.session.locale;
+
+  if (!match) {
+    await ctx.reply(
+      locale === 'ar'
+        ? 'مش متأكد بتسأل عن إيه. جرب:\n/اسعار — كل أسعار اليوم\n/سعر ذرة — سعر خامة\n/تكلفة — حساب علفك\n/تنبيه — اضبط تنبيه\n/مساعدة — كل الأوامر'
+        : "Not sure what you're asking. Try:\n/prices — today's prices\n/price corn — one commodity\n/cost — your formula\n/alert — set an alert\n/help — all commands",
+    );
+    return;
+  }
+  const snap = await getCommoditySnapshot(match.slug);
+  if (!snap) {
+    await ctx.reply(
+      locale === 'ar'
+        ? `لقيت "${match.nameAr}" بس مفيش سعر متسجل لليوم. جرب /اسعار.`
+        : `Found "${match.nameEn}" but no price recorded today. Try /prices.`,
+    );
+    return;
+  }
+  const name = locale === 'ar' ? snap.commodity.nameAr : snap.commodity.nameEn;
+  const src = locale === 'ar' ? snap.sourceAr : snap.sourceEn;
+  const delta = snap.previous && snap.previous !== 0 ? ((snap.current - snap.previous) / snap.previous) * 100 : 0;
+  const arrow = Math.abs(delta) < 0.05 ? '•' : delta > 0 ? '▲' : '▼';
+  const deltaStr = Math.abs(delta) < 0.05 ? '' : ` ${arrow} ${Math.abs(delta).toFixed(1)}%`;
+  await ctx.reply(
+    locale === 'ar'
+      ? `*${name}*\n${snap.current.toLocaleString('en-EG')} ${snap.commodity.unit}${deltaStr}\n_${src}_\n\nاكتب /سعر ${match.nameAr} لتفاصيل أكتر.`
+      : `*${name}*\n${snap.current.toLocaleString('en-US')} ${snap.commodity.unit}${deltaStr}\n_${src}_\n\nType /price ${match.nameEn} for details.`,
+    { parse_mode: 'Markdown' },
+  );
+});
+
 // ── Error boundary ─────────────────────────────────────────────────────────
 bot.catch((err) => {
   console.error('Bot error:', err.error);
