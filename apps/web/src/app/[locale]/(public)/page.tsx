@@ -19,19 +19,65 @@ export default async function LandingPage({
 
   const t = await getTranslations({ locale, namespace: 'landing' });
   const tNav = await getTranslations({ locale, namespace: 'nav' });
-  const prices = (await getTodayPrices()).slice(0, 6);
+  const allPrices = await getTodayPrices();
+  const prices = allPrices.slice(0, 6);
   const updatedAt = prices[0] ? new Date(prices[0].date) : new Date();
+  const sourceCount = new Set(allPrices.map((p) => p.sourceSlug)).size;
+  const commodityCount = new Set(allPrices.map((p) => p.commoditySlug)).size;
+  // Pick distinct commodities for the mobile ticker strip (one quote per slug).
+  const tickerSeen = new Set<string>();
+  const ticker = allPrices
+    .filter((p) => {
+      if (tickerSeen.has(p.commoditySlug)) return false;
+      tickerSeen.add(p.commoditySlug);
+      return true;
+    })
+    .slice(0, 12);
 
   return (
     <>
+      {/* ── Live ticker strip — primary above-the-fold data on mobile ─── */}
+      {ticker.length > 0 ? (
+        <div className="overflow-hidden border-b border-wheat-gold/30 bg-deep-navy text-paper-white">
+          <div className="mx-auto flex max-w-content items-center gap-1 px-3 py-2">
+            <span className="me-2 hidden shrink-0 items-center gap-1.5 rounded-full bg-wheat-gold/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-wheat-gold sm:inline-flex">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-wheat-gold" />
+              {locale === 'ar' ? 'مباشر' : 'LIVE'}
+            </span>
+            <div className="flex gap-x-5 overflow-x-auto whitespace-nowrap scrollbar-none">
+              {ticker.map((p) => {
+                const delta = p.previous && p.previous !== 0 ? ((p.value - p.previous) / p.previous) * 100 : 0;
+                const arrow = Math.abs(delta) < 0.05 ? '·' : delta > 0 ? '▲' : '▼';
+                const color = Math.abs(delta) < 0.05 ? 'text-paper-white/55' : delta > 0 ? 'text-emerald-300' : 'text-red-300';
+                return (
+                  <span key={p.priceId} className="inline-flex items-center gap-1.5 font-mono text-xs">
+                    <span className="font-medium text-paper-white/95">
+                      {locale === 'ar' ? p.commodityNameAr : p.commodityNameEn}
+                    </span>
+                    <span data-numeric className="text-wheat-gold">
+                      {Math.round(p.value).toLocaleString('en-EG')}
+                    </span>
+                    {Math.abs(delta) >= 0.05 ? (
+                      <span data-numeric className={color}>
+                        {arrow} {Math.abs(delta).toFixed(1)}%
+                      </span>
+                    ) : null}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* ── Hero ───────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-cream to-paper-white py-20">
+      <section className="relative overflow-hidden bg-gradient-to-b from-cream to-paper-white py-16 lg:py-20">
         <div className="mx-auto grid max-w-content items-center gap-12 px-6 lg:grid-cols-[1.2fr_1fr]">
           <div>
             <p className="mb-3 text-xs font-semibold uppercase tracking-[2px] text-wheat-gold">
               {t('hero.kicker')}
             </p>
-            <h1 className="mb-5 text-[clamp(2.25rem,5vw,3.75rem)] font-bold leading-[1.15] text-deep-navy">
+            <h1 className="mb-5 font-display text-[clamp(2.5rem,5.5vw,4rem)] leading-[1.1] text-deep-navy">
               {t('hero.titleBase')}{' '}
               <span className="text-wheat-gold">{t('hero.titleAccent')}</span>
             </h1>
@@ -46,19 +92,32 @@ export default async function LandingPage({
                 </a>
               </Button>
             </div>
-            <div className="mt-12 flex flex-wrap gap-8 text-sm text-charcoal/65">
-              <span className="before:me-2 before:font-bold before:text-harvest-green before:content-['✓']">
-                {t('hero.trustSources')}
-              </span>
-              <span className="before:me-2 before:font-bold before:text-harvest-green before:content-['✓']">
-                {t('hero.trustCommodities')}
-              </span>
-              <span className="before:me-2 before:font-bold before:text-harvest-green before:content-['✓']">
-                {t('hero.trustUpdate')}
-              </span>
-              <span className="before:me-2 before:font-bold before:text-harvest-green before:content-['✓']">
-                {t('hero.trustAlerts')}
-              </span>
+            {/* 3-stat billboard — replaces the 4 small checkmark whispers. */}
+            <div className="mt-10 grid max-w-md grid-cols-3 gap-6 border-t border-navy/10 pt-6">
+              <div>
+                <div className="font-mono text-3xl font-bold leading-none tracking-tight text-deep-navy" data-numeric>
+                  {sourceCount}
+                </div>
+                <div className="mt-1 text-[11px] uppercase tracking-wide text-charcoal/55">
+                  {locale === 'ar' ? 'مصادر مباشرة' : 'live sources'}
+                </div>
+              </div>
+              <div>
+                <div className="font-mono text-3xl font-bold leading-none tracking-tight text-deep-navy" data-numeric>
+                  {commodityCount}
+                </div>
+                <div className="mt-1 text-[11px] uppercase tracking-wide text-charcoal/55">
+                  {locale === 'ar' ? 'سلعة' : 'commodities'}
+                </div>
+              </div>
+              <div>
+                <div className="font-mono text-3xl font-bold leading-none tracking-tight text-deep-navy" data-numeric>
+                  6<span className="text-base font-medium text-charcoal/55">AM</span>
+                </div>
+                <div className="mt-1 text-[11px] uppercase tracking-wide text-charcoal/55">
+                  {locale === 'ar' ? 'تحديث يومي' : 'daily update'}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -102,7 +161,7 @@ export default async function LandingPage({
           <p className="mb-3 text-xs font-semibold uppercase tracking-[2px] text-wheat-gold">
             {t('features.kicker')}
           </p>
-          <h2 className="mb-4 text-[clamp(1.75rem,3vw,2.5rem)] font-medium leading-tight text-deep-navy">
+          <h2 className="mb-4 font-display text-[clamp(2rem,3.5vw,2.75rem)] leading-tight text-deep-navy">
             {t('features.title')}
           </h2>
           <p className="mb-12 max-w-[40em] text-charcoal/75">{t('features.lead')}</p>
@@ -135,7 +194,7 @@ export default async function LandingPage({
       {/* ── CTA ────────────────────────────────────────── */}
       <section className="bg-deep-navy py-16 text-white">
         <div className="mx-auto max-w-content px-6 text-center">
-          <h2 className="mb-3 text-[clamp(1.75rem,3vw,2.5rem)] font-medium">{t('cta.title')}</h2>
+          <h2 className="mb-3 font-display text-[clamp(2rem,3.5vw,2.75rem)] leading-tight">{t('cta.title')}</h2>
           <p className="mx-auto mb-8 max-w-[40em] text-white/75">{t('cta.subtitle')}</p>
           <Button asChild size="lg">
             <Link href={`/${locale}/signup`}>{t('cta.button')}</Link>

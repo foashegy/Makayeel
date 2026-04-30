@@ -52,4 +52,13 @@
     direction: ltr;
     unicode-bidi: embed;
   }
+
+  /* Hide scrollbars while keeping content scrollable — used for ticker strips. */
+  .scrollbar-none {
+    -ms-overflow-style: none; /* IE/Edge */
+    scrollbar-width: none;    /* Firefox */
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;            /* Chrome/Safari */
+  }
 }
