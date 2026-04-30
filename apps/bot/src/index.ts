@@ -30,8 +30,10 @@ import {
 } from './commands/alert';
 import { langHandler, helpHandler } from './commands/lang';
 import { registerExtractHandlers } from './commands/extract';
+import { scrapeHandler } from './commands/scrape';
 import { runDailyDigest } from './jobs/daily-digest';
 import { runAlertPoll } from './jobs/alert-poll';
+import { runMazra3tyScrapeAndNotify } from './jobs/scrape-mazra3ty';
 
 const bot = new Bot<BotContext>(env.TELEGRAM_BOT_TOKEN);
 bot.use(session({ initial: initSession }));
@@ -56,6 +58,7 @@ bot.command(['alert', 'تنبيه'], alertHandler);
 bot.command(['alerts', 'تنبيهاتي'], listAlertsHandler);
 bot.command('link', linkHandler);
 bot.command(['lang', 'لغة', 'اللغة'], langHandler);
+bot.command(['scrape', 'سحب', 'تحديث'], scrapeHandler);
 
 // ── Photo extraction (admin only) ──────────────────────────────────────────
 registerExtractHandlers(bot);
@@ -114,7 +117,12 @@ async function start() {
     runDailyDigest(bot).catch((e) => console.error('daily-digest failed:', e));
   }, { timezone: 'Africa/Cairo' });
 
-  console.info('✅ cron jobs scheduled (alert-poll /30m, daily-digest 07:00 Africa/Cairo)');
+  // Daily 06:00 Africa/Cairo — pull mazra3ty.com prices before digest.
+  cron.schedule('0 6 * * *', () => {
+    runMazra3tyScrapeAndNotify(bot).catch((e) => console.error('mazra3ty scrape failed:', e));
+  }, { timezone: 'Africa/Cairo' });
+
+  console.info('✅ cron jobs scheduled (alert-poll /30m, mazra3ty 06:00, digest 07:00 Africa/Cairo)');
 }
 
 start().catch((err) => {

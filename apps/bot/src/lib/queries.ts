@@ -37,26 +37,27 @@ export async function getCommoditySnapshot(
   const today = cairoToday();
   const yesterday = cairoDaysAgo(1);
 
-  // Prefer Alexandria Port as canonical.
-  const alex = await prisma.source.findUnique({ where: { slug: 'alex-port' } });
-  if (!alex) return null;
-
-  const [todayRow, yRow] = await Promise.all([
-    prisma.price.findUnique({
-      where: { commodityId_sourceId_date: { commodityId: commodity.id, sourceId: alex.id, date: today } },
-    }),
-    prisma.price.findUnique({
-      where: { commodityId_sourceId_date: { commodityId: commodity.id, sourceId: alex.id, date: yesterday } },
-    }),
-  ]);
-
+  // Prefer Alexandria Port; fall back to most recent today across any source.
+  const todayRow = await prisma.price.findFirst({
+    where: { commodityId: commodity.id, date: today },
+    include: { source: true },
+    orderBy: [
+      { source: { slug: 'asc' } },
+      { updatedAt: 'desc' },
+    ],
+  });
   if (!todayRow) return null;
+
+  const yRow = await prisma.price.findFirst({
+    where: { commodityId: commodity.id, sourceId: todayRow.sourceId, date: yesterday },
+  });
+
   return {
     commodity,
     current: Number(todayRow.value),
     previous: yRow ? Number(yRow.value) : null,
-    sourceAr: alex.nameAr,
-    sourceEn: alex.nameEn,
+    sourceAr: todayRow.source.nameAr,
+    sourceEn: todayRow.source.nameEn,
     date: todayRow.createdAt,
   };
 }
@@ -102,6 +103,66 @@ export async function getLinkedUser(chatId: string) {
 export interface PriceUpsert {
   commoditySlug: string;
   value: number;
+}
+
+export interface ScrapedProductUpsert {
+  nameAr: string;
+  nameEn: string;
+  slug: string;
+  category: 'GRAINS' | 'PROTEINS' | 'BYPRODUCTS' | 'ADDITIVES' | 'OILS' | 'FINISHED_FEED';
+  unit: string;
+  value: number;
+}
+
+export async function ensureSource(
+  slug: string,
+  nameAr: string,
+  nameEn: string,
+  type: 'PORT' | 'WHOLESALER' | 'EXCHANGE' | 'FACTORY',
+): Promise<{ id: string }> {
+  return prisma.source.upsert({
+    where: { slug },
+    create: { slug, nameAr, nameEn, type },
+    update: {},
+    select: { id: true },
+  });
+}
+
+export async function upsertScrapedProducts(
+  products: ScrapedProductUpsert[],
+  sourceId: string,
+  sourceRef?: string,
+): Promise<{ written: number; createdCommodities: string[] }> {
+  const date = cairoToday();
+  const createdCommodities: string[] = [];
+  let written = 0;
+
+  for (const p of products) {
+    let commodity = await prisma.commodity.findUnique({ where: { slug: p.slug } });
+    if (!commodity) {
+      const max = await prisma.commodity.aggregate({ _max: { displayOrder: true } });
+      commodity = await prisma.commodity.create({
+        data: {
+          slug: p.slug,
+          nameAr: p.nameAr,
+          nameEn: p.nameEn,
+          category: p.category,
+          unit: p.unit,
+          displayOrder: (max._max.displayOrder ?? 0) + 1,
+        },
+      });
+      createdCommodities.push(p.slug);
+    }
+    await prisma.price.upsert({
+      where: {
+        commodityId_sourceId_date: { commodityId: commodity.id, sourceId, date },
+      },
+      create: { commodityId: commodity.id, sourceId, date, value: p.value, sourceRef },
+      update: { value: p.value, sourceRef, isEstimated: false },
+    });
+    written++;
+  }
+  return { written, createdCommodities };
 }
 
 export async function upsertPricesForToday(
