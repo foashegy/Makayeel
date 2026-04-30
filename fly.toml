@@ -1,0 +1,20 @@
+# fly.toml — Makayeel Telegram bot worker
+# Pure polling worker (no HTTP). Long-polls Telegram + runs node-cron jobs.
+
+app = 'makayeel-bot'
+primary_region = 'cdg'
+
+[build]
+  dockerfile = 'apps/bot/Dockerfile'
+
+[env]
+  NODE_ENV = 'production'
+  TZ = 'Africa/Cairo'
+
+[[vm]]
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 512
+
+[deploy]
+  strategy = 'immediate'

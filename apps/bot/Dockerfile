@@ -1,6 +1,7 @@
 # ─── Stage 1: deps & build ───────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
 
@@ -20,19 +21,17 @@ COPY apps/bot apps/bot
 COPY tsconfig.base.json .
 
 RUN pnpm --filter @makayeel/db generate
-RUN pnpm --filter @makayeel/bot build
+# Skip tsc build — run with tsx at runtime to match dev behaviour.
 
 # ─── Stage 2: runtime ────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates tzdata && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV TZ=Africa/Cairo
-
-# Cairo tz data
-RUN apk add --no-cache tzdata
 
 COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/package.json ./
 COPY --from=builder /app/packages/db ./packages/db
@@ -44,4 +43,4 @@ COPY --from=builder /app/node_modules ./node_modules
 RUN pnpm --filter @makayeel/db generate
 
 WORKDIR /app/apps/bot
-CMD ["node", "dist/index.js"]
+CMD ["pnpm", "exec", "tsx", "src/index.ts"]

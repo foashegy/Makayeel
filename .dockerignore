@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/coverage
+.git
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+preview
+docker-compose.yml
+fly.toml
+.dockerignore
