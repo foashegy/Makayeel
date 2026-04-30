@@ -44,6 +44,7 @@ const config: Config = {
       },
       fontFamily: {
         arabic: ['var(--font-tajawal)', 'Tajawal', 'system-ui', 'sans-serif'],
+        display: ['var(--font-cairo)', 'Cairo', 'var(--font-tajawal)', 'Tajawal', 'system-ui', 'sans-serif'],
         latin: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['var(--font-jetbrains)', 'JetBrains Mono', 'monospace'],
       },

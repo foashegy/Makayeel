@@ -40,6 +40,14 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Cairo Black for headlines — adds authoritative weight on Arabic h1/h2.
+     Use via class="font-display" on headings. */
+  .font-display {
+    font-family: var(--font-cairo), Cairo, var(--font-tajawal), system-ui, sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+  }
+
   .ltr {
     direction: ltr;
     unicode-bidi: embed;

@@ -2,7 +2,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { isLocale, localeDirections, type Locale } from '@makayeel/i18n';
-import { tajawal, inter, jetbrainsMono, fontVariables } from '@makayeel/ui/fonts';
+import { tajawal, cairo, inter, jetbrainsMono, fontVariables } from '@makayeel/ui/fonts';
 import '@makayeel/ui/globals.css';
 
 export async function generateMetadata({
@@ -34,7 +34,7 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} dir={dir} className={fontVariables} suppressHydrationWarning>
-      <body className={`${tajawal.variable} ${inter.variable} ${jetbrainsMono.variable} antialiased`}>
+      <body className={`${tajawal.variable} ${cairo.variable} ${inter.variable} ${jetbrainsMono.variable} antialiased`}>
         <NextIntlClientProvider locale={locale} messages={messages}>
           {children}
         </NextIntlClientProvider>
