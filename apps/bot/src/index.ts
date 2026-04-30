@@ -29,7 +29,8 @@ import {
   deleteAlertCallbackHandler,
 } from './commands/alert';
 import { langHandler, helpHandler } from './commands/lang';
-import { registerExtractHandlers } from './commands/extract';
+import { registerExtractHandlers, photoHandler } from './commands/extract';
+import { registerSubmitHandlers, submitPhotoHandler } from './commands/submit';
 import { scrapeHandler } from './commands/scrape';
 import { runDailyDigest } from './jobs/daily-digest';
 import { runAlertPoll } from './jobs/alert-poll';
@@ -60,8 +61,19 @@ bot.command('link', linkHandler);
 bot.command(['lang', 'لغة', 'اللغة'], langHandler);
 bot.command(['scrape', 'سحب', 'تحديث'], scrapeHandler);
 
-// ── Photo extraction (admin only) ──────────────────────────────────────────
+// ── Photo extraction (admin) + Mill submission (linked users) ──────────────
 registerExtractHandlers(bot);
+registerSubmitHandlers(bot);
+
+// Single photo router: if user has just opened /عرض submission mode, route
+// the photo to the mill-submission flow; otherwise fall back to the
+// admin-only extraction flow.
+bot.on('message:photo', async (ctx) => {
+  if (ctx.session.awaitingMillPhoto) {
+    return submitPhotoHandler(ctx);
+  }
+  return photoHandler(ctx);
+});
 
 // ── Callback queries (inline keyboards) ───────────────────────────────────
 bot.callbackQuery(/^alert:(ABOVE|BELOW):.+:\d+(?:\.\d+)?$/, alertCallbackHandler);
@@ -89,6 +101,7 @@ async function start() {
     { command: 'alert', description: 'تنبيه / Alert' },
     { command: 'alerts', description: 'تنبيهاتي / My alerts' },
     { command: 'link', description: 'اربط حسابك / Link account' },
+    { command: 'submit', description: 'عرض سعر مصنعي / Submit my mill quote' },
     { command: 'lang', description: 'لغة / Language' },
     { command: 'help', description: 'مساعدة / Help' },
   ]);

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '@makayeel/db';
 import { auth } from '@/auth';
-import { jsonOk, jsonError } from '@/lib/api-auth';
+import { jsonOk, jsonError, checkRateLimit } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +33,12 @@ export async function GET() {
 export async function POST(req: Request) {
   const userId = await ensureSession();
   if (!userId) return jsonError(401, 'UNAUTHORIZED', 'Sign in required.');
+  // 30 watchlist mutations per minute per user — generous for normal use,
+  // hard cap for spam.
+  const rate = await checkRateLimit(`watchlist:${userId}`, 30, 60_000);
+  if (!rate.ok) {
+    return jsonError(429, 'RATE_LIMITED', `Too many requests. Retry in ${rate.retryAfter}s.`);
+  }
   const parsed = SlugSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError(400, 'BAD_REQUEST', parsed.error.issues[0]?.message ?? 'Invalid input.');
 
@@ -66,6 +72,10 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   const userId = await ensureSession();
   if (!userId) return jsonError(401, 'UNAUTHORIZED', 'Sign in required.');
+  const rate = await checkRateLimit(`watchlist:${userId}`, 30, 60_000);
+  if (!rate.ok) {
+    return jsonError(429, 'RATE_LIMITED', `Too many requests. Retry in ${rate.retryAfter}s.`);
+  }
   const url = new URL(req.url);
   const slug = url.searchParams.get('slug') ?? '';
   const parsed = SlugSchema.safeParse({ slug });

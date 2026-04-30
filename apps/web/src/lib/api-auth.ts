@@ -55,28 +55,65 @@ export class ForbiddenError extends Error {
   }
 }
 
-/** In-memory token bucket — good enough for MVP, resets on process restart.
- *  Production should replace with Redis. Documented in the API route README. */
-const buckets = new Map<string, { tokens: number; lastRefill: number }>();
-const CAPACITY = 60; // requests
-const WINDOW_MS = 60_000; // per minute
+/** Postgres-backed token bucket. Survives deploys, distributes across
+ *  multiple instances, no external Redis dependency. */
+const DEFAULT_CAPACITY = 60; // requests
+const DEFAULT_WINDOW_MS = 60_000; // per minute
 
-export function checkRateLimit(keyId: string): { ok: boolean; retryAfter: number } {
-  const now = Date.now();
-  const bucket = buckets.get(keyId) ?? { tokens: CAPACITY, lastRefill: now };
-  // Refill proportional to elapsed window.
-  const elapsed = now - bucket.lastRefill;
-  const refill = Math.floor((elapsed / WINDOW_MS) * CAPACITY);
-  if (refill > 0) {
-    bucket.tokens = Math.min(CAPACITY, bucket.tokens + refill);
-    bucket.lastRefill = now;
+export interface RateLimitOptions {
+  capacity?: number;
+  windowMs?: number;
+  /** What to do if the rate-limit table itself errors out.
+   *  - 'closed' (default, safe for mutations): treat as rate-limited (returns 503-equivalent)
+   *  - 'open' (acceptable for read-heavy endpoints): pass through legitimate traffic
+   *  Mutations should NEVER fail-open — an attacker who can pressure the DB
+   *  could bypass the limiter. */
+  onError?: 'closed' | 'open';
+}
+
+export async function checkRateLimit(
+  bucketKey: string,
+  capacityOrOptions: number | RateLimitOptions = DEFAULT_CAPACITY,
+  windowMsArg = DEFAULT_WINDOW_MS,
+): Promise<{ ok: boolean; retryAfter: number; degraded?: true }> {
+  const opts: RateLimitOptions = typeof capacityOrOptions === 'object'
+    ? capacityOrOptions
+    : { capacity: capacityOrOptions, windowMs: windowMsArg };
+  const capacity = opts.capacity ?? DEFAULT_CAPACITY;
+  const windowMs = opts.windowMs ?? DEFAULT_WINDOW_MS;
+  const onError = opts.onError ?? 'closed';
+
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - windowMs);
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.rateLimit.findUnique({ where: { bucketKey } });
+      if (!existing || existing.windowStart < cutoff) {
+        await tx.rateLimit.upsert({
+          where: { bucketKey },
+          create: { bucketKey, tokens: capacity - 1, windowStart: now },
+          update: { tokens: capacity - 1, windowStart: now },
+        });
+        return { ok: true, retryAfter: 0 };
+      }
+      if (existing.tokens > 0) {
+        await tx.rateLimit.update({
+          where: { bucketKey },
+          data: { tokens: existing.tokens - 1 },
+        });
+        return { ok: true, retryAfter: 0 };
+      }
+      const retryAfter = Math.ceil((existing.windowStart.getTime() + windowMs - now.getTime()) / 1000);
+      return { ok: false, retryAfter: Math.max(retryAfter, 1) };
+    });
+    return result;
+  } catch (err) {
+    console.error('[ratelimit] DB error:', (err as Error).message);
+    // Fail-CLOSED for mutations (default): refuse the request. The handler
+    // surfaces this as 503-style "service degraded" so an attacker who can
+    // pressure the DB can't bypass the limiter.
+    if (onError === 'open') return { ok: true, retryAfter: 0, degraded: true };
+    return { ok: false, retryAfter: 60, degraded: true };
   }
-  if (bucket.tokens > 0) {
-    bucket.tokens -= 1;
-    buckets.set(keyId, bucket);
-    return { ok: true, retryAfter: 0 };
-  }
-  const retryAfter = Math.ceil(WINDOW_MS / CAPACITY / 1000);
-  buckets.set(keyId, bucket);
-  return { ok: false, retryAfter };
 }

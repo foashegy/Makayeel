@@ -332,3 +332,55 @@ model Formula {
 
   @@index([userId])
 }
+
+// -----------------------------------------------------------------------------
+// Operational tables — added 2026-05-01 in response to CTO board review.
+// -----------------------------------------------------------------------------
+
+/// Append-only audit trail for every admin price write or scraper upsert.
+/// Mills (and we) can prove what was reported, by whom, when. Never deleted.
+model PriceAudit {
+  id           String   @id @default(cuid())
+  priceId      String?  // null if the price was rejected before insert
+  commoditySlug String
+  sourceSlug   String
+  date         DateTime @db.Date
+  oldValue     Decimal? @db.Decimal(12, 2)
+  newValue     Decimal  @db.Decimal(12, 2)
+  /// 'admin_bulk' | 'photo_extract' | 'mill_submit' | 'scraper_mazra3ty' | 'scraper_elmorshd'
+  source       String
+  /// userId for human-driven actions, null for cron-driven scrapes.
+  actorUserId  String?
+  /// Free-form note: file_id, scraper run id, sourceRef etc.
+  note         String?
+  createdAt    DateTime @default(now())
+
+  @@index([commoditySlug, date])
+  @@index([source, createdAt])
+  @@index([actorUserId])
+}
+
+/// Distributed rate-limiting table. Replaces the in-memory token bucket so
+/// limits survive deploys and apply across multiple instances.
+model RateLimit {
+  /// Composite key: e.g. "watchlist:userId" or "vision:chatId" or "api:keyId".
+  bucketKey  String   @id
+  /// Tokens remaining in the current window.
+  tokens     Int
+  /// When the window started (ms).
+  windowStart DateTime
+  updatedAt  DateTime @updatedAt
+}
+
+/// Per-user daily Vision API quota — caps how many photo extractions a user
+/// can run per Cairo day to bound Claude cost exposure.
+model VisionQuota {
+  /// Composite key: "userId:YYYY-MM-DD" (Cairo day).
+  key        String   @id
+  userId     String?
+  used       Int      @default(0)
+  date       DateTime @db.Date
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, date])
+}

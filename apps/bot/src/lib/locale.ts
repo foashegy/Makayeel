@@ -14,9 +14,27 @@ export interface PendingExtraction {
   createdAt: number;
 }
 
+export interface PendingMillSubmission {
+  /** Same correlation pattern as PendingExtraction. */
+  id: number;
+  prices: { commoditySlug: string; value: number; confidence: 'high' | 'medium' | 'low' }[];
+  /** The mill source slug we'll write under — namespaced as mill-{userId} so
+   * different mills don't collide. Auto-created on first submission. */
+  millSourceSlug: string;
+  millLabel: string;
+  createdAt: number;
+}
+
 export interface BotSession {
   locale: Locale;
   pendingExtraction?: PendingExtraction;
+  pendingSubmission?: PendingMillSubmission;
+  /** Track when we last accepted a /عرض submission (epoch ms). Used to apply
+   * a soft rate limit so a single mill can't drown the table in 1 day. */
+  lastSubmissionAt?: number;
+  /** True if the user explicitly opened submission mode via /عرض — the very
+   * next photo is treated as a mill quote, not an admin extraction. */
+  awaitingMillPhoto?: boolean;
 }
 
 export type BotContext = Context & SessionFlavor<BotSession>;

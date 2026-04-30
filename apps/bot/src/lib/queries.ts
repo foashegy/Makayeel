@@ -100,6 +100,44 @@ export async function getLinkedUser(chatId: string) {
   return link?.user ?? null;
 }
 
+/** Per-user / per-Cairo-day Vision quota guard. Atomic check-and-increment
+ * to avoid TOCTOU under concurrent extractions. Fails closed on DB error so
+ * we never bill Anthropic without an enforced cap. */
+export async function consumeVisionQuota(
+  bucketKey: string,
+  userId: string | null,
+  cap: number,
+): Promise<{ ok: boolean; used: number; cap: number }> {
+  const todayIso = formatInTimeZone(new Date(), TZ, 'yyyy-MM-dd');
+  const date = new Date(`${todayIso}T00:00:00.000Z`);
+  const key = `${bucketKey}:${todayIso}`;
+  try {
+    // First request of the day for this bucket: create the row at used=1.
+    // We catch the unique-constraint conflict and fall through to UPDATE.
+    try {
+      await prisma.visionQuota.create({ data: { key, userId, used: 1, date } });
+      return { ok: 1 <= cap, used: 1, cap };
+    } catch {
+      // Row exists — atomic conditional UPDATE. Postgres only writes the row
+      // if used < cap, otherwise the update affects 0 rows and we know we hit
+      // the ceiling. This sidesteps READ COMMITTED TOCTOU completely.
+      const updated = await prisma.$executeRaw`
+        UPDATE "VisionQuota"
+        SET used = used + 1, "updatedAt" = NOW()
+        WHERE key = ${key} AND used < ${cap}
+      `;
+      if (updated === 0) {
+        return { ok: false, used: cap, cap };
+      }
+      const row = await prisma.visionQuota.findUnique({ where: { key }, select: { used: true } });
+      return { ok: true, used: row?.used ?? cap, cap };
+    }
+  } catch (err) {
+    console.error('[visionQuota] DB error, failing closed:', (err as Error).message);
+    return { ok: false, used: cap, cap };
+  }
+}
+
 export interface PriceUpsert {
   commoditySlug: string;
   value: number;

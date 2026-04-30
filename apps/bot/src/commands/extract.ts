@@ -1,10 +1,16 @@
 import { InlineKeyboard, type Bot } from 'grammy';
 import type { BotContext } from '../lib/locale';
 import { extractRawMaterialPrices } from '../lib/vision';
-import { upsertPricesForToday, getCommodities, ensureSource } from '../lib/queries';
+import { upsertPricesForToday, getCommodities, ensureSource, consumeVisionQuota } from '../lib/queries';
 
 const ADMIN_ID = process.env.ADMIN_TELEGRAM_ID;
 const PENDING_TTL_MS = 10 * 60 * 1000;
+/** 5 MiB — comfortably under Telegram's 20 MB photo cap and well under
+ * Claude Vision's 5 MB recommended limit. Anything bigger is suspicious. */
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+/** Daily Vision-API extractions per admin. Bounds runaway cost if a key
+ * leaks or a script attaches the bot's webhook. */
+const ADMIN_VISION_DAILY_CAP = 100;
 
 function isAdmin(ctx: BotContext): boolean {
   return ADMIN_ID !== undefined && String(ctx.from?.id) === ADMIN_ID;
@@ -18,16 +24,40 @@ export async function photoHandler(ctx: BotContext) {
   const photos = ctx.message?.photo;
   if (!photos || photos.length === 0) return;
 
+  // Daily cap on admin extractions — bounds Anthropic spend even if the
+  // bot token leaks or someone scripts a flood of forwarded photos.
+  const quota = await consumeVisionQuota(`admin-vision:${ctx.from?.id}`, null, ADMIN_VISION_DAILY_CAP);
+  if (!quota.ok) {
+    await ctx.reply(`⏳ وصلت لحد ${quota.cap} استخراج النهارده. جرب بكره.`);
+    return;
+  }
+
   await ctx.reply('🔎 بقرأ الصورة دلوقتي...');
   const largest = photos[photos.length - 1];
+  if (largest.file_size && largest.file_size > MAX_IMAGE_BYTES) {
+    await ctx.reply(
+      `❌ الصورة كبيرة (${Math.round(largest.file_size / 1024)} KB). الحد الأقصى ${Math.round(MAX_IMAGE_BYTES / 1024)} KB.`,
+    );
+    return;
+  }
   const file = await ctx.api.getFile(largest.file_id);
   if (!file.file_path) {
     await ctx.reply('❌ مقدرتش أحمّل الصورة.');
     return;
   }
+  // Telegram bot token must NEVER appear in a logged URL string. We build the
+  // URL just for the fetch and never log it.
   const url = `https://api.telegram.org/file/bot${ctx.api.token}/${file.file_path}`;
   const res = await fetch(url);
+  if (!res.ok) {
+    await ctx.reply('❌ فشل تحميل الصورة من تليجرام.');
+    return;
+  }
   const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length > MAX_IMAGE_BYTES) {
+    await ctx.reply(`❌ الصورة كبيرة جداً (${Math.round(buf.length / 1024)} KB). جرب صورة أصغر.`);
+    return;
+  }
   const ext = file.file_path.toLowerCase();
   const mediaType: 'image/jpeg' | 'image/png' | 'image/webp' =
     ext.endsWith('.png') ? 'image/png' : ext.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
@@ -37,7 +67,7 @@ export async function photoHandler(ctx: BotContext) {
     result = await extractRawMaterialPrices(buf.toString('base64'), mediaType);
   } catch (err) {
     console.error('Vision extraction failed:', err);
-    await ctx.reply(`❌ ما عرفتش أستخرج الأسعار: ${(err as Error).message}`);
+    await ctx.reply('❌ ما عرفتش أستخرج الأسعار من الصورة. جرب صورة أوضح.');
     return;
   }
 
@@ -145,12 +175,13 @@ export async function extractCallbackHandler(ctx: BotContext) {
     } catch (err) {
       console.error('Price upsert failed:', err);
       await ctx.answerCallbackQuery({ text: 'حصل خطأ' });
-      await ctx.reply(`❌ مقدرتش أسجل: ${(err as Error).message}`);
+      await ctx.reply('❌ مقدرتش أسجل دلوقتي. حاول بعد شوية.');
     }
   }
 }
 
 export function registerExtractHandlers(bot: Bot<BotContext>) {
-  bot.on('message:photo', photoHandler);
+  // Photo routing is registered in index.ts because two flows (admin extract
+  // vs mill submission) share the message:photo channel.
   bot.callbackQuery(/^extract:(confirm|cancel)(?::\d+)?$/, extractCallbackHandler);
 }

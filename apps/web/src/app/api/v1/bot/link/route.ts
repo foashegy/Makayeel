@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '@makayeel/db';
 import { jsonOk, jsonError } from '@/lib/api-auth';
@@ -5,7 +6,7 @@ import { jsonOk, jsonError } from '@/lib/api-auth';
 export const dynamic = 'force-dynamic';
 
 // Called by the Telegram bot when a user runs `/link CODE`.
-// The bot authenticates using a shared secret (same as CRON_SECRET, or a dedicated one later).
+// Authenticates with the shared bot↔web secret (env-only, never logged).
 
 const RedeemSchema = z.object({
   code: z.string().min(4).max(12),
@@ -13,9 +14,17 @@ const RedeemSchema = z.object({
   telegramUsername: z.string().optional(),
 });
 
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
+
 export async function POST(req: Request) {
-  const authz = req.headers.get('authorization');
-  if (authz !== `Bearer ${process.env.CRON_SECRET}`) {
+  const expected = process.env.CRON_SECRET ?? '';
+  const authz = req.headers.get('authorization') ?? '';
+  if (!expected || !safeEqual(authz, `Bearer ${expected}`)) {
     return jsonError(401, 'UNAUTHORIZED', 'Bot auth failed.');
   }
 
