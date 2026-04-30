@@ -46,6 +46,8 @@ export default async function PricesPage({
     medianPrev: number | null;
     isEstimated: boolean;
     sourceRef: string | null;
+    sourceCount: number;
+    deltaPct: number; // signed % vs medianPrev
   };
   const groups = new Map<string, typeof rows>();
   for (const r of rows) {
@@ -65,20 +67,31 @@ export default async function PricesPage({
     if (!head) return [];
     const values = gs.map((g) => g.value);
     const prev = gs.map((g) => g.previous).filter((p): p is number => p != null);
+    const med = median(values);
+    const medPrev = prev.length ? median(prev) : null;
+    const deltaPct = medPrev && medPrev !== 0 ? ((med - medPrev) / medPrev) * 100 : 0;
     return [{
       slug,
       iconKey: head.commodityIconKey,
       nameAr: head.commodityNameAr,
       nameEn: head.commodityNameEn,
       unit: head.unit,
-      median: median(values),
+      median: med,
       min: Math.min(...values),
       max: Math.max(...values),
-      medianPrev: prev.length ? median(prev) : null,
+      medianPrev: medPrev,
       isEstimated: gs.some((g) => g.isEstimated),
       sourceRef: gs.find((g) => g.sourceRef)?.sourceRef ?? null,
+      sourceCount: new Set(gs.map((g) => g.sourceSlug)).size,
+      deltaPct,
     }];
   });
+
+  // Pick the commodity with the biggest absolute move today as the hero card.
+  const hero = summary.length > 0
+    ? [...summary].sort((a, b) => Math.abs(b.deltaPct) - Math.abs(a.deltaPct))[0]
+    : null;
+  const heroSlug = hero?.slug;
 
   const tableRows: PriceTableRow[] = rows.map((r) => ({
     priceId: r.priceId,
@@ -226,11 +239,46 @@ export default async function PricesPage({
         </div>
 
         {activeView === 'summary' ? (
-          /* Summary cards — one per commodity, median + range + delta. */
+          /* Summary cards — featured + grid; hero gets dark card spanning 2 cols. */
           <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {summary.map((s) => {
               const name = locale === 'ar' ? s.nameAr : s.nameEn;
               const subtitle = locale === 'ar' ? s.nameEn : s.nameAr;
+              const isHero = s.slug === heroSlug && Math.abs(s.deltaPct) >= 0.5;
+              if (isHero) {
+                return (
+                  <div
+                    key={s.slug}
+                    className="rounded-2xl border border-wheat-gold/30 bg-deep-navy p-6 text-paper-white shadow-card transition hover:shadow-card-hover hover:-translate-y-0.5 sm:col-span-2 xl:col-span-2"
+                  >
+                    <div className="mb-4 flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-wheat-gold/15 text-wheat-gold">
+                        <CommodityIcon slug={s.slug} iconKey={s.iconKey} nameAr={s.nameAr} size="md" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-wheat-gold/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-wheat-gold">
+                          {locale === 'ar' ? '🔥 أكبر حركة اليوم' : '🔥 Top mover today'}
+                        </div>
+                        <h3 className="truncate font-display text-2xl text-paper-white">{name}</h3>
+                        <p className="truncate text-xs text-paper-white/60">{subtitle}</p>
+                      </div>
+                      <DeltaBadge current={s.median} previous={s.medianPrev} locale={locale} size="md" />
+                    </div>
+                    <div className="font-mono text-6xl font-bold leading-none tracking-tight text-wheat-gold" data-numeric>
+                      {formatPrice(s.median, locale)}
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-paper-white/70" data-numeric>
+                      <span className="font-semibold text-paper-white/90">{s.unit}</span>
+                      <span>
+                        {locale === 'ar' ? 'النطاق' : 'Range'}: {formatPrice(s.min, locale)} – {formatPrice(s.max, locale)}
+                      </span>
+                      <span>
+                        {s.sourceCount} {locale === 'ar' ? 'مصادر' : 'sources'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
               return (
                 <div
                   key={s.slug}
@@ -257,12 +305,16 @@ export default async function PricesPage({
                   <div className="mb-1 font-mono text-4xl font-bold leading-none tracking-tight text-deep-navy" data-numeric>
                     {formatPrice(s.median, locale)}
                   </div>
-                  <div className="mt-2 text-[11px] text-navy-200" data-numeric>
-                    {s.unit}
-                    {' · '}
-                    {locale === 'ar'
-                      ? `النطاق ${formatPrice(s.min, locale)} – ${formatPrice(s.max, locale)}`
-                      : `Range ${formatPrice(s.min, locale)} – ${formatPrice(s.max, locale)}`}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-navy-200" data-numeric>
+                    <span>{s.unit}</span>
+                    <span>
+                      {locale === 'ar'
+                        ? `${formatPrice(s.min, locale)} – ${formatPrice(s.max, locale)}`
+                        : `${formatPrice(s.min, locale)} – ${formatPrice(s.max, locale)}`}
+                    </span>
+                    <span>
+                      {s.sourceCount} {locale === 'ar' ? 'مصادر' : 'src'}
+                    </span>
                   </div>
                 </div>
               );
