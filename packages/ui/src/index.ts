@@ -21,6 +21,7 @@ export * from './components/price-card';
 export * from './components/price-table';
 export * from './components/price-chart';
 export * from './components/sparkline';
+export * from './components/flashing-price';
 export * from './components/lang-toggle';
 export * from './components/theme-toggle';
 export * from './components/logo';

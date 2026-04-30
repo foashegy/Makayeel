@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { prisma } from '@makayeel/db';
 import { jsonOk, jsonError } from '@/lib/api-auth';
 import { cairoToday } from '@/lib/queries';
@@ -6,6 +7,13 @@ import { sendAlertEmail } from '@/lib/email';
 import { notifyTelegram } from '@/lib/telegram-notify';
 
 export const dynamic = 'force-dynamic';
+
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
 
 /**
  * Cron endpoint — invoked by Vercel Cron every 30 min.
@@ -19,8 +27,8 @@ export const dynamic = 'force-dynamic';
  *   3. Send via configured channel(s), update lastFiredAt.
  */
 export async function GET(req: Request) {
-  const authz = req.headers.get('authorization');
-  if (authz !== `Bearer ${env.CRON_SECRET}`) {
+  const authz = req.headers.get('authorization') ?? '';
+  if (!safeEqual(authz, `Bearer ${env.CRON_SECRET}`)) {
     return jsonError(401, 'UNAUTHORIZED', 'Bad cron secret.');
   }
 
@@ -39,11 +47,14 @@ export async function GET(req: Request) {
     if (current === undefined || v < current) minByCommodity.set(p.commodityId, v);
   }
 
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  // De-dupe by *Africa/Cairo day* rather than a 24h sliding window. A user
+  // never gets the same alert twice in one trading day, but they DO get it
+  // again the next morning if the condition is still true.
+  // (P1 #1: the previous `now - 24h` window drifted with cron timing.)
   const alerts = await prisma.alert.findMany({
     where: {
       isActive: true,
-      OR: [{ lastFiredAt: null }, { lastFiredAt: { lt: yesterday } }],
+      OR: [{ lastFiredAt: null }, { lastFiredAt: { lt: today } }],
     },
     include: { user: { include: { botLink: true } }, commodity: true },
   });
