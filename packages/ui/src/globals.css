@@ -15,6 +15,12 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  html.dark,
+  html.dark body {
+    background: #0E1A26;
+    color: #F5EFE0;
+  }
+
   html[lang='ar'],
   html[dir='rtl'] {
     font-family: var(--font-tajawal), Tajawal, system-ui, sans-serif;

@@ -191,8 +191,8 @@ export default async function PricesPage({
       </div>
 
       <div className="mx-auto max-w-content px-6 py-10">
-        <h1 className="mb-2 font-display text-4xl text-deep-navy md:text-5xl">{t('pageTitle')}</h1>
-        <p className="mb-8 text-charcoal/75">{t('pageLead')}</p>
+        <h1 className="mb-2 font-display text-4xl text-deep-navy md:text-5xl dark:text-paper-white">{t('pageTitle')}</h1>
+        <p className="mb-8 text-charcoal/75 dark:text-paper-white/70">{t('pageLead')}</p>
 
         {/* Category filters */}
         <div className="mb-4 flex flex-wrap gap-2">
@@ -207,8 +207,8 @@ export default async function PricesPage({
                 href={href}
                 className={
                   isActive
-                    ? 'rounded-full bg-deep-navy px-4 py-1.5 text-sm font-medium text-paper-white'
-                    : 'rounded-full border border-navy/15 px-4 py-1.5 text-sm font-medium text-deep-navy hover:bg-navy/5'
+                    ? 'rounded-full bg-deep-navy px-4 py-1.5 text-sm font-medium text-paper-white dark:bg-wheat-gold dark:text-deep-navy'
+                    : 'rounded-full border border-navy/15 px-4 py-1.5 text-sm font-medium text-deep-navy hover:bg-navy/5 dark:border-paper-white/15 dark:text-paper-white dark:hover:bg-paper-white/10'
                 }
               >
                 {t(`filters.${f.key}`)}
@@ -218,13 +218,13 @@ export default async function PricesPage({
         </div>
 
         {/* View tabs — Summary (median per commodity) vs Sources (full breakdown) */}
-        <div className="mb-6 inline-flex rounded-full border border-navy/15 bg-white p-1 text-sm font-medium">
+        <div className="mb-6 inline-flex rounded-full border border-navy/15 bg-white p-1 text-sm font-medium dark:border-paper-white/15 dark:bg-[#152535]">
           <a
             href={`/${locale}/prices${active ? `?category=${active.toLowerCase()}` : ''}`}
             className={
               activeView === 'summary'
-                ? 'rounded-full bg-deep-navy px-4 py-1.5 text-paper-white'
-                : 'rounded-full px-4 py-1.5 text-deep-navy hover:bg-navy/5'
+                ? 'rounded-full bg-deep-navy px-4 py-1.5 text-paper-white dark:bg-wheat-gold dark:text-deep-navy'
+                : 'rounded-full px-4 py-1.5 text-deep-navy hover:bg-navy/5 dark:text-paper-white dark:hover:bg-paper-white/10'
             }
           >
             {locale === 'ar' ? 'وسيط السعر' : 'Median'}
@@ -233,8 +233,8 @@ export default async function PricesPage({
             href={`/${locale}/prices?view=sources${active ? `&category=${active.toLowerCase()}` : ''}`}
             className={
               activeView === 'sources'
-                ? 'rounded-full bg-deep-navy px-4 py-1.5 text-paper-white'
-                : 'rounded-full px-4 py-1.5 text-deep-navy hover:bg-navy/5'
+                ? 'rounded-full bg-deep-navy px-4 py-1.5 text-paper-white dark:bg-wheat-gold dark:text-deep-navy'
+                : 'rounded-full px-4 py-1.5 text-deep-navy hover:bg-navy/5 dark:text-paper-white dark:hover:bg-paper-white/10'
             }
           >
             {locale === 'ar' ? 'بالمصدر' : 'By source'}
@@ -298,13 +298,13 @@ export default async function PricesPage({
               return (
                 <div
                   key={s.slug}
-                  className="rounded-2xl border border-navy/8 bg-white p-5 shadow-card transition hover:shadow-card-hover hover:-translate-y-0.5"
+                  className="rounded-2xl border border-navy/8 bg-white p-5 shadow-card transition hover:shadow-card-hover hover:-translate-y-0.5 dark:border-paper-white/10 dark:bg-[#152535]"
                 >
                   <div className="mb-4 flex items-start gap-3">
                     <CommodityIcon slug={s.slug} iconKey={s.iconKey} nameAr={s.nameAr} size="md" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="truncate font-display text-base text-deep-navy">{name}</h3>
+                        <h3 className="truncate font-display text-base text-deep-navy dark:text-paper-white">{name}</h3>
                         {s.isEstimated ? (
                           <span
                             title={s.sourceRef ?? ''}
@@ -319,7 +319,7 @@ export default async function PricesPage({
                     <DeltaBadge current={s.median} previous={s.medianPrev} locale={locale} size="sm" />
                   </div>
                   <div className="flex items-end justify-between gap-3">
-                    <div className="font-mono text-4xl font-bold leading-none tracking-tight text-deep-navy" data-numeric>
+                    <div className="font-mono text-4xl font-bold leading-none tracking-tight text-deep-navy dark:text-paper-white" data-numeric>
                       {formatPrice(s.median, locale)}
                     </div>
                     {series.length >= 2 ? (

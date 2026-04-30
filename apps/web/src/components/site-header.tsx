@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
-import { BrandMark, LangToggle, Button } from '@makayeel/ui';
+import { BrandMark, LangToggle, ThemeToggle, Button } from '@makayeel/ui';
 import { auth } from '@/auth';
 import type { Locale } from '@makayeel/i18n';
 
@@ -12,25 +12,26 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
   const isAdmin = user?.role === 'ADMIN';
 
   return (
-    <header className="sticky top-0 z-50 border-b border-navy/8 bg-paper-white/90 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-navy/8 bg-paper-white/90 backdrop-blur-sm dark:border-paper-white/10 dark:bg-[#0E1A26]/85">
       <div className="mx-auto flex max-w-content items-center justify-between px-6 py-4">
         <Link href={`/${locale}`} aria-label="Makayeel home">
           <BrandMark />
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
-          <Link href={`/${locale}/prices`} className="text-sm font-medium text-deep-navy hover:opacity-70">
+          <Link href={`/${locale}/prices`} className="text-sm font-medium text-deep-navy hover:opacity-70 dark:text-paper-white">
             {t('prices')}
           </Link>
-          <Link href={`/${locale}/pricing`} className="text-sm font-medium text-deep-navy hover:opacity-70">
+          <Link href={`/${locale}/pricing`} className="text-sm font-medium text-deep-navy hover:opacity-70 dark:text-paper-white">
             {t('pricing')}
           </Link>
-          <Link href={`/${locale}/about`} className="text-sm font-medium text-deep-navy hover:opacity-70">
+          <Link href={`/${locale}/about`} className="text-sm font-medium text-deep-navy hover:opacity-70 dark:text-paper-white">
             {t('about')}
           </Link>
         </nav>
 
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <LangToggle current={locale} />
           {user ? (
             <>

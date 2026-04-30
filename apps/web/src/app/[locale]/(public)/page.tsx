@@ -71,17 +71,17 @@ export default async function LandingPage({
       ) : null}
 
       {/* ── Hero ───────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-cream to-paper-white py-16 lg:py-20">
+      <section className="relative overflow-hidden bg-gradient-to-b from-cream to-paper-white py-16 dark:from-[#0E1A26] dark:to-[#152535] lg:py-20">
         <div className="mx-auto grid max-w-content items-center gap-12 px-6 lg:grid-cols-[1.2fr_1fr]">
           <div>
             <p className="mb-3 text-xs font-semibold uppercase tracking-[2px] text-wheat-gold">
               {t('hero.kicker')}
             </p>
-            <h1 className="mb-5 font-display text-[clamp(2.5rem,5.5vw,4rem)] leading-[1.1] text-deep-navy">
+            <h1 className="mb-5 font-display text-[clamp(2.5rem,5.5vw,4rem)] leading-[1.1] text-deep-navy dark:text-paper-white">
               {t('hero.titleBase')}{' '}
               <span className="text-wheat-gold">{t('hero.titleAccent')}</span>
             </h1>
-            <p className="mb-8 max-w-[38em] text-lg text-charcoal/80">{t('hero.subtitle')}</p>
+            <p className="mb-8 max-w-[38em] text-lg text-charcoal/80 dark:text-paper-white/75">{t('hero.subtitle')}</p>
             <div className="flex flex-wrap gap-3">
               <Button asChild>
                 <Link href={`/${locale}/prices`}>{t('hero.ctaPrimary')}</Link>
@@ -95,7 +95,7 @@ export default async function LandingPage({
             {/* 3-stat billboard — replaces the 4 small checkmark whispers. */}
             <div className="mt-10 grid max-w-md grid-cols-3 gap-6 border-t border-navy/10 pt-6">
               <div>
-                <div className="font-mono text-3xl font-bold leading-none tracking-tight text-deep-navy" data-numeric>
+                <div className="font-mono text-3xl font-bold leading-none tracking-tight text-deep-navy dark:text-wheat-gold" data-numeric>
                   {sourceCount}
                 </div>
                 <div className="mt-1 text-[11px] uppercase tracking-wide text-charcoal/55">
@@ -103,7 +103,7 @@ export default async function LandingPage({
                 </div>
               </div>
               <div>
-                <div className="font-mono text-3xl font-bold leading-none tracking-tight text-deep-navy" data-numeric>
+                <div className="font-mono text-3xl font-bold leading-none tracking-tight text-deep-navy dark:text-wheat-gold" data-numeric>
                   {commodityCount}
                 </div>
                 <div className="mt-1 text-[11px] uppercase tracking-wide text-charcoal/55">
@@ -111,7 +111,7 @@ export default async function LandingPage({
                 </div>
               </div>
               <div>
-                <div className="font-mono text-3xl font-bold leading-none tracking-tight text-deep-navy" data-numeric>
+                <div className="font-mono text-3xl font-bold leading-none tracking-tight text-deep-navy dark:text-wheat-gold" data-numeric>
                   6<span className="text-base font-medium text-charcoal/55">AM</span>
                 </div>
                 <div className="mt-1 text-[11px] uppercase tracking-wide text-charcoal/55">
@@ -122,7 +122,7 @@ export default async function LandingPage({
           </div>
 
           {/* Today's prices widget */}
-          <aside className="rounded-2xl border border-navy/8 bg-white p-6 shadow-card">
+          <aside className="rounded-2xl border border-navy/8 bg-white p-6 shadow-card dark:border-paper-white/10 dark:bg-[#152535]">
             <div className="mb-4 flex items-baseline justify-between border-b border-navy/8 pb-3">
               <h3 className="text-base font-medium text-deep-navy">{t('snapshotTitle')}</h3>
               <span className="font-mono text-xs text-navy-200" data-numeric>
@@ -161,10 +161,10 @@ export default async function LandingPage({
           <p className="mb-3 text-xs font-semibold uppercase tracking-[2px] text-wheat-gold">
             {t('features.kicker')}
           </p>
-          <h2 className="mb-4 font-display text-[clamp(2rem,3.5vw,2.75rem)] leading-tight text-deep-navy">
+          <h2 className="mb-4 font-display text-[clamp(2rem,3.5vw,2.75rem)] leading-tight text-deep-navy dark:text-paper-white">
             {t('features.title')}
           </h2>
-          <p className="mb-12 max-w-[40em] text-charcoal/75">{t('features.lead')}</p>
+          <p className="mb-12 max-w-[40em] text-charcoal/75 dark:text-paper-white/65">{t('features.lead')}</p>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {(
               [
@@ -176,15 +176,15 @@ export default async function LandingPage({
             ).map((f) => (
               <div
                 key={f.k}
-                className="rounded-2xl border border-navy/8 bg-white p-7 transition hover:-translate-y-0.5 hover:shadow-card-hover"
+                className="rounded-2xl border border-navy/8 bg-white p-7 transition hover:-translate-y-0.5 hover:shadow-card-hover dark:border-paper-white/10 dark:bg-[#152535]"
               >
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-lg text-wheat-gold">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-lg text-wheat-gold dark:bg-wheat-gold/15">
                   {f.icon}
                 </div>
-                <h4 className="mb-2 text-base font-medium text-deep-navy">
+                <h4 className="mb-2 text-base font-medium text-deep-navy dark:text-paper-white">
                   {t(`features.${f.k}Title`)}
                 </h4>
-                <p className="text-sm text-charcoal/75">{t(`features.${f.k}Desc`)}</p>
+                <p className="text-sm text-charcoal/75 dark:text-paper-white/65">{t(`features.${f.k}Desc`)}</p>
               </div>
             ))}
           </div>
