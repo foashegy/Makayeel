@@ -18,7 +18,9 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Makayeel',
     url: siteUrl,
-    images: ['/og.png'],
+    locale: 'ar_EG',
+    alternateLocale: ['en_US'],
   },
+  twitter: { card: 'summary_large_image', site: '@makayeel' },
   robots: { index: true, follow: true },
 };

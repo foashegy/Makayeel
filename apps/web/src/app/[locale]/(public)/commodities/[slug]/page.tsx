@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import {
@@ -26,6 +27,41 @@ import { prisma } from '@makayeel/db';
 import { WatchlistStar } from '@/components/watchlist-star';
 
 export const revalidate = 300;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+}): Promise<Metadata> {
+  const { locale, slug } = await params;
+  const commodity = await getCommodityBySlug(slug);
+  if (!commodity) return {};
+  const title = locale === 'ar' ? commodity.nameAr : commodity.nameEn;
+  const subtitle = locale === 'ar'
+    ? `سعر ${commodity.nameAr} اليومي في مصر — ${commodity.unit}`
+    : `Daily ${commodity.nameEn} price in Egypt — ${commodity.unit}`;
+  return {
+    title,
+    description: subtitle,
+    openGraph: {
+      title: `${title} · مكاييل`,
+      description: subtitle,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${title} · مكاييل`,
+      description: subtitle,
+    },
+    alternates: {
+      canonical: `/${locale}/commodities/${slug}`,
+      languages: {
+        ar: `/ar/commodities/${slug}`,
+        en: `/en/commodities/${slug}`,
+      },
+    },
+  };
+}
 
 export default async function CommodityPage({
   params,
@@ -63,8 +99,38 @@ export default async function CommodityPage({
 
   const related = others.filter((c) => c.slug !== commodity.slug && c.category === commodity.category).slice(0, 4);
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://makayeel.com';
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    name: locale === 'ar' ? `سعر ${commodity.nameAr} اليومي في مصر` : `Daily ${commodity.nameEn} price in Egypt`,
+    description: locale === 'ar'
+      ? `أسعار خام ${commodity.nameAr} اليومية في السوق المصري — مستحدثة من ميناء الإسكندرية ومصادر تجار الجملة.`
+      : `Daily ${commodity.nameEn} prices in the Egyptian market — sourced from Alexandria Port and wholesale traders.`,
+    url: `${siteUrl}/${locale}/commodities/${commodity.slug}`,
+    keywords: [commodity.nameAr, commodity.nameEn, 'feed', 'Egypt', 'price'].join(','),
+    creator: {
+      '@type': 'Organization',
+      name: 'Makayeel',
+      url: siteUrl,
+    },
+    distribution: [{
+      '@type': 'DataDownload',
+      encodingFormat: 'application/json',
+      contentUrl: `${siteUrl}/api/v1/prices/${commodity.slug}`,
+    }],
+    variableMeasured: locale === 'ar' ? commodity.nameAr : commodity.nameEn,
+    measurementTechnique: 'Daily aggregation across Alexandria Port, mazra3ty.com, and elmorshdledwagn.com',
+    spatialCoverage: { '@type': 'Country', name: 'Egypt' },
+    temporalCoverage: '2026-04-01/..',
+  };
+
   return (
     <div className="mx-auto max-w-content px-6 py-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="mb-8 flex items-start gap-4">
         <CommodityIcon
           slug={commodity.slug}
