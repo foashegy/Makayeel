@@ -12,6 +12,8 @@ const ExtractedPriceSchema = z.object({
 const ExtractionResultSchema = z.object({
   prices: z.array(ExtractedPriceSchema),
   sourceLabel: z.string().nullable().optional(),
+  sourceSlug: z.string().regex(/^[a-z0-9-]+$/).nullable().optional(),
+  sourceType: z.enum(['PORT', 'WHOLESALER', 'EXCHANGE', 'FACTORY']).nullable().optional(),
   notes: z.string().nullable().optional(),
 });
 
@@ -37,12 +39,17 @@ ${slugTable}
 - للقيمة: رقم بالـ EGP/ton الواحد. لو السعر مكتوب بالكيلو اضربه ×1000. لو مكتوب بالأردب (ذرة) اعتبر أردب الذرة = 140 كجم.
 - لو الخامة مش في القائمة فوق، تجاهلها.
 - لو في شك في رقم خليه confidence: "low".
-- ممكن تستنتج المصدر (sourceLabel) من اللوحة لو واضح (مثلاً "ميناء الإسكندرية"، "تجار الفيوم"). لو مش واضح ارجع null.
+- استخرج المصدر (sourceLabel) من الشعار/الترويسة (مثلاً "بركة للأعلاف"، "VETFEP"، "إكرام"، "الكيان"، "ميناء الإسكندرية").
+- اقترح sourceSlug مناسب (kebab-case إنجليزي): مثال "baraka-feed", "vetfep", "ekram-feed", "al-kayan", "alex-port".
+- sourceType: "FACTORY" لشركات الأعلاف، "PORT" للموانئ، "WHOLESALER" للتجار، "EXCHANGE" لمزرعتي وأي بورصة.
+- لو مفيش مصدر واضح، اترك sourceLabel/sourceSlug = null (هيتسجل تحت الميناء).
 
 شكل الـ JSON:
 {
   "prices": [{"commoditySlug": "yellow-corn", "value": 18500, "confidence": "high"}, ...],
-  "sourceLabel": "..." | null,
+  "sourceLabel": "بركة للأعلاف" | null,
+  "sourceSlug": "baraka-feed" | null,
+  "sourceType": "FACTORY" | "PORT" | "WHOLESALER" | "EXCHANGE" | null,
   "notes": "..." | null
 }`;
 

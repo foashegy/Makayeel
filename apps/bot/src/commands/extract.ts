@@ -1,7 +1,7 @@
 import { InlineKeyboard, type Bot } from 'grammy';
 import type { BotContext } from '../lib/locale';
 import { extractRawMaterialPrices } from '../lib/vision';
-import { upsertPricesForToday, getCommodities } from '../lib/queries';
+import { upsertPricesForToday, getCommodities, ensureSource } from '../lib/queries';
 
 const ADMIN_ID = process.env.ADMIN_TELEGRAM_ID;
 const PENDING_TTL_MS = 10 * 60 * 1000;
@@ -49,6 +49,8 @@ export async function photoHandler(ctx: BotContext) {
   ctx.session.pendingExtraction = {
     prices: result.prices,
     sourceLabel: result.sourceLabel ?? null,
+    sourceSlug: result.sourceSlug ?? null,
+    sourceType: result.sourceType ?? null,
     createdAt: Date.now(),
   };
 
@@ -61,7 +63,10 @@ export async function photoHandler(ctx: BotContext) {
     lines.push(`• ${name}: *${p.value.toLocaleString('en-EG')}* EGP/طن${conf}`);
   }
   if (result.sourceLabel) lines.push('', `_المصدر:_ ${result.sourceLabel}`);
-  lines.push('', '_هتتسجل على ميناء الإسكندرية (alex-port) لتاريخ النهاردة._');
+  const targetSourceLabel = result.sourceSlug
+    ? `${result.sourceLabel ?? result.sourceSlug} (${result.sourceSlug})`
+    : 'ميناء الإسكندرية (alex-port)';
+  lines.push('', `_هتتسجل على ${targetSourceLabel} لتاريخ النهاردة._`);
 
   const kb = new InlineKeyboard()
     .text('✅ تأكيد', 'extract:confirm')
@@ -98,16 +103,29 @@ export async function extractCallbackHandler(ctx: BotContext) {
 
   if (action === 'confirm') {
     try {
+      let sourceSlug = 'alex-port';
+      let sourceLabelOut = 'ميناء الإسكندرية';
+      if (pending.sourceSlug) {
+        const src = await ensureSource(
+          pending.sourceSlug,
+          pending.sourceLabel ?? pending.sourceSlug,
+          pending.sourceLabel ?? pending.sourceSlug,
+          pending.sourceType ?? 'FACTORY',
+        );
+        sourceSlug = pending.sourceSlug;
+        sourceLabelOut = pending.sourceLabel ?? pending.sourceSlug;
+        void src;
+      }
       const { written, skipped } = await upsertPricesForToday(
         pending.prices.map((p) => ({ commoditySlug: p.commoditySlug, value: p.value })),
-        'alex-port',
+        sourceSlug,
         pending.sourceLabel ?? 'Telegram photo',
       );
       delete ctx.session.pendingExtraction;
       await ctx.answerCallbackQuery({ text: 'اتسجل ✅' });
       await ctx.editMessageReplyMarkup({ reply_markup: undefined });
       const skippedNote = skipped.length > 0 ? `\n⚠️ اتجاهل: ${skipped.join(', ')}` : '';
-      await ctx.reply(`✅ اتسجل ${written} سعر النهاردة على ميناء الإسكندرية.${skippedNote}\n\nجرب /اسعار.`);
+      await ctx.reply(`✅ اتسجل ${written} سعر النهاردة على *${sourceLabelOut}*.${skippedNote}\n\nجرب /اسعار.`, { parse_mode: 'Markdown' });
     } catch (err) {
       console.error('Price upsert failed:', err);
       await ctx.answerCallbackQuery({ text: 'حصل خطأ' });

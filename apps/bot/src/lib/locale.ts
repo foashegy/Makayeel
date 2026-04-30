@@ -5,6 +5,8 @@ import { prisma } from '@makayeel/db';
 export interface PendingExtraction {
   prices: { commoditySlug: string; value: number; confidence: 'high' | 'medium' | 'low' }[];
   sourceLabel: string | null;
+  sourceSlug: string | null;
+  sourceType: 'PORT' | 'WHOLESALER' | 'EXCHANGE' | 'FACTORY' | null;
   createdAt: number;
 }
 
