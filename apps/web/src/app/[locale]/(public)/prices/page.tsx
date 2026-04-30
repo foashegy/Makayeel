@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server';
-import { PriceTable, type PriceTableRow, DeltaBadge, CommodityIcon, formatPrice } from '@makayeel/ui';
-import { getTodayPrices } from '@/lib/queries';
+import { PriceTable, type PriceTableRow, DeltaBadge, CommodityIcon, Sparkline, formatPrice } from '@makayeel/ui';
+import { getTodayPrices, getRecentSparklines } from '@/lib/queries';
 import type { Locale } from '@makayeel/i18n';
 import { isLocale } from '@makayeel/i18n';
 import { notFound } from 'next/navigation';
@@ -29,7 +29,10 @@ export default async function PricesPage({
 
   const t = await getTranslations({ locale, namespace: 'prices' });
   const active = (category?.toUpperCase() ?? null) as CommodityCategory | null;
-  const rows = await getTodayPrices(active ? { category: active } : undefined);
+  const [rows, sparklines] = await Promise.all([
+    getTodayPrices(active ? { category: active } : undefined),
+    getRecentSparklines(30),
+  ]);
   const activeView: 'summary' | 'sources' = view === 'sources' ? 'sources' : 'summary';
 
   // Per-commodity summary: median price, range, delta, any estimated source.
@@ -245,6 +248,7 @@ export default async function PricesPage({
               const name = locale === 'ar' ? s.nameAr : s.nameEn;
               const subtitle = locale === 'ar' ? s.nameEn : s.nameAr;
               const isHero = s.slug === heroSlug && Math.abs(s.deltaPct) >= 0.5;
+              const series = sparklines.get(s.slug) ?? [];
               if (isHero) {
                 return (
                   <div
@@ -264,8 +268,15 @@ export default async function PricesPage({
                       </div>
                       <DeltaBadge current={s.median} previous={s.medianPrev} locale={locale} size="md" />
                     </div>
-                    <div className="font-mono text-6xl font-bold leading-none tracking-tight text-wheat-gold" data-numeric>
-                      {formatPrice(s.median, locale)}
+                    <div className="flex items-end justify-between gap-4">
+                      <div className="font-mono text-6xl font-bold leading-none tracking-tight text-wheat-gold" data-numeric>
+                        {formatPrice(s.median, locale)}
+                      </div>
+                      {series.length >= 2 ? (
+                        <div className="ltr shrink-0 text-paper-white/85" dir="ltr">
+                          <Sparkline values={series} width={180} height={48} />
+                        </div>
+                      ) : null}
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-paper-white/70" data-numeric>
                       <span className="font-semibold text-paper-white/90">{s.unit}</span>
@@ -275,6 +286,11 @@ export default async function PricesPage({
                       <span>
                         {s.sourceCount} {locale === 'ar' ? 'مصادر' : 'sources'}
                       </span>
+                      {series.length >= 2 ? (
+                        <span>
+                          {locale === 'ar' ? 'آخر' : 'Last'} {series.length} {locale === 'ar' ? 'يوم' : 'days'}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -302,8 +318,15 @@ export default async function PricesPage({
                     </div>
                     <DeltaBadge current={s.median} previous={s.medianPrev} locale={locale} size="sm" />
                   </div>
-                  <div className="mb-1 font-mono text-4xl font-bold leading-none tracking-tight text-deep-navy" data-numeric>
-                    {formatPrice(s.median, locale)}
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="font-mono text-4xl font-bold leading-none tracking-tight text-deep-navy" data-numeric>
+                      {formatPrice(s.median, locale)}
+                    </div>
+                    {series.length >= 2 ? (
+                      <div className="ltr shrink-0" dir="ltr">
+                        <Sparkline values={series} width={88} height={28} />
+                      </div>
+                    ) : null}
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-navy-200" data-numeric>
                     <span>{s.unit}</span>

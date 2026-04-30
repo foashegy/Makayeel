@@ -102,6 +102,55 @@ export async function getCommodityBySlug(slug: string) {
   return prisma.commodity.findUnique({ where: { slug }, include: { prices: false } });
 }
 
+/**
+ * Bulk-fetch the last `days` of canonical (alex-port) prices for every commodity
+ * that has data in the window. Used to render sparkline arrays on the prices
+ * board. Returns a Map keyed by commodity slug — each value is the median price
+ * per date sorted asc, so a falling sparkline visually means "trending down".
+ *
+ * Single round-trip Postgres query (no N+1).
+ */
+export async function getRecentSparklines(days: number): Promise<Map<string, number[]>> {
+  const from = cairoDaysAgo(days);
+  const rows = await prisma.price.findMany({
+    where: { date: { gte: from } },
+    orderBy: { date: 'asc' },
+    select: {
+      date: true,
+      value: true,
+      commodity: { select: { slug: true } },
+    },
+  });
+
+  // Group by commodity → date → value (collapse multi-source into median).
+  const byCommodity = new Map<string, Map<string, number[]>>();
+  for (const r of rows) {
+    const slug = r.commodity.slug;
+    const dateKey = r.date.toISOString().slice(0, 10);
+    let dateMap = byCommodity.get(slug);
+    if (!dateMap) {
+      dateMap = new Map();
+      byCommodity.set(slug, dateMap);
+    }
+    const existing = dateMap.get(dateKey) ?? [];
+    existing.push(Number(r.value));
+    dateMap.set(dateKey, existing);
+  }
+
+  const out = new Map<string, number[]>();
+  for (const [slug, dateMap] of byCommodity) {
+    const series: number[] = [];
+    for (const [, values] of [...dateMap.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      const sorted = [...values].sort((a, b) => a - b);
+      const m = Math.floor(sorted.length / 2);
+      const median = sorted.length % 2 ? sorted[m]! : ((sorted[m - 1] ?? 0) + (sorted[m] ?? 0)) / 2;
+      series.push(median);
+    }
+    out.set(slug, series);
+  }
+  return out;
+}
+
 export async function getCommodityHistory(slug: string, days: number) {
   const from = cairoDaysAgo(days);
   const commodity = await prisma.commodity.findUnique({ where: { slug } });
