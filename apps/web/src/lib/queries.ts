@@ -41,11 +41,11 @@ export async function getTodayPrices(options?: {
   category?: CommodityCategory;
 }): Promise<TodayPriceRow[]> {
   const today = cairoToday();
+  let effectiveDate = today;
   const yesterday = cairoDaysAgo(1);
 
-  const where = {
-    date: today,
-    archivedAt: null,
+  const baseWhere = {
+    archivedAt: null as Date | null,
     commodity: {
       isActive: true,
       ...(options?.category ? { category: options.category } : {}),
@@ -53,26 +53,50 @@ export async function getTodayPrices(options?: {
     source: { isActive: true },
   };
 
-  const rows = await prisma.price.findMany({
-    where,
+  let rows = await prisma.price.findMany({
+    where: { ...baseWhere, date: today },
     include: { commodity: true, source: true },
     orderBy: [{ commodity: { displayOrder: 'asc' } }, { source: { slug: 'asc' } }],
   });
+
+  // If today's scrape hasn't run yet (typical between 00:00 and 06:00 Cairo),
+  // fall back to the most recent date that DOES have data — so /prices is
+  // never empty after the daily rollover. We look back at most 7 days.
+  if (rows.length === 0) {
+    const mostRecent = await prisma.price.findFirst({
+      where: { ...baseWhere, date: { lt: today, gte: cairoDaysAgo(7) } },
+      orderBy: { date: 'desc' },
+      select: { date: true },
+    });
+    if (mostRecent) {
+      effectiveDate = mostRecent.date;
+      rows = await prisma.price.findMany({
+        where: { ...baseWhere, date: effectiveDate },
+        include: { commodity: true, source: true },
+        orderBy: [{ commodity: { displayOrder: 'asc' } }, { source: { slug: 'asc' } }],
+      });
+    }
+  }
 
   if (rows.length === 0) return [];
 
   const commodityIds = [...new Set(rows.map((r) => r.commodityId))];
   const sourceIds = [...new Set(rows.map((r) => r.sourceId))];
 
+  // Yesterday relative to whichever date we ended up rendering. If we fell
+  // back to a stale date, the delta should still compare against that day's
+  // prior reading, not against today's calendar yesterday.
+  const prevDate = new Date(effectiveDate.getTime() - 86_400_000);
   const prevRows = await prisma.price.findMany({
     where: {
-      date: yesterday,
+      date: prevDate,
       archivedAt: null,
       commodityId: { in: commodityIds },
       sourceId: { in: sourceIds },
     },
     select: { commodityId: true, sourceId: true, value: true },
   });
+  void yesterday; // kept for backward-compat / future use
 
   const prevMap = new Map<string, number>();
   for (const p of prevRows) {
