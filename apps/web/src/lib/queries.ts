@@ -187,6 +187,8 @@ export async function getCommoditySourceBreakdown(slug: string) {
     sourceNameEn: r.source.nameEn,
     sourceType: r.source.type,
     value: Number(r.value),
+    updatedAt: r.updatedAt,
+    sourceRef: r.sourceRef,
   }));
 }
 

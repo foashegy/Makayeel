@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { BrandMark, LangToggle, ThemeToggle, Button } from '@makayeel/ui';
 import { auth } from '@/auth';
 import type { Locale } from '@makayeel/i18n';
+import { MobileNav } from './mobile-nav';
 
 export async function SiteHeader({ locale }: { locale: Locale }) {
   const t = await getTranslations({ locale, namespace: 'nav' });
@@ -30,7 +31,17 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <MobileNav
+            locale={locale}
+            links={[
+              { href: `/${locale}/prices`, label: t('prices') },
+              { href: `/${locale}/pricing`, label: t('pricing') },
+              { href: `/${locale}/about`, label: t('about') },
+            ]}
+            ctaHref={user ? `/${locale}/dashboard` : `/${locale}/login`}
+            ctaLabel={user ? t('dashboard') : t('login')}
+          />
           <ThemeToggle />
           <LangToggle current={locale} />
           {user ? (

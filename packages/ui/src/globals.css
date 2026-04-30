@@ -67,4 +67,43 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;            /* Chrome/Safari */
   }
+
+  /* Live ticker marquee — duplicate the children inside .marquee-track for
+     a seamless infinite loop. Pauses on hover and respects reduced-motion. */
+  @keyframes marquee-rtl {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  @keyframes marquee-ltr {
+    from { transform: translateX(-50%); }
+    to   { transform: translateX(0); }
+  }
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee-rtl 60s linear infinite;
+  }
+  [dir='ltr'] .marquee-track {
+    animation: marquee-ltr 60s linear infinite;
+  }
+  .marquee-wrapper:hover .marquee-track,
+  .marquee-track:focus-within {
+    animation-play-state: paused;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track { animation: none; }
+  }
+
+  /* Flash on price update (client component toggles .price-flash-up/down).
+     400ms accent fade-in then back to transparent — TradingView pattern. */
+  @keyframes price-flash-up {
+    0%   { background-color: rgb(16 185 129 / 0.35); }
+    100% { background-color: transparent; }
+  }
+  @keyframes price-flash-down {
+    0%   { background-color: rgb(239 68 68 / 0.35); }
+    100% { background-color: transparent; }
+  }
+  .price-flash-up   { animation: price-flash-up 600ms ease-out; }
+  .price-flash-down { animation: price-flash-down 600ms ease-out; }
 }

@@ -36,21 +36,25 @@ export default async function LandingPage({
 
   return (
     <>
-      {/* ── Live ticker strip — primary above-the-fold data on mobile ─── */}
+      {/* ── Live ticker strip — primary above-the-fold data, animated marquee ── */}
       {ticker.length > 0 ? (
-        <div className="overflow-hidden border-b border-wheat-gold/30 bg-deep-navy text-paper-white">
+        <div className="marquee-wrapper relative overflow-hidden border-b border-wheat-gold/30 bg-deep-navy text-paper-white">
+          {/* Edge fades hint at scroll/loop without breaking the seamless track. */}
+          <div className="pointer-events-none absolute inset-y-0 start-0 z-10 w-12 bg-gradient-to-r from-deep-navy to-transparent rtl:bg-gradient-to-l" aria-hidden />
+          <div className="pointer-events-none absolute inset-y-0 end-0 z-10 w-12 bg-gradient-to-l from-deep-navy to-transparent rtl:bg-gradient-to-r" aria-hidden />
           <div className="mx-auto flex max-w-content items-center gap-1 px-3 py-2">
             <span className="me-2 hidden shrink-0 items-center gap-1.5 rounded-full bg-wheat-gold/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-wheat-gold sm:inline-flex">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-wheat-gold" />
               {locale === 'ar' ? 'مباشر' : 'LIVE'}
             </span>
-            <div className="flex gap-x-5 overflow-x-auto whitespace-nowrap scrollbar-none">
-              {ticker.map((p) => {
+            {/* The track contains TWO copies of the items so translate(-50%) loops seamlessly. */}
+            <div className="marquee-track gap-x-6 whitespace-nowrap" aria-label="live price ticker">
+              {[...ticker, ...ticker].map((p, idx) => {
                 const delta = p.previous && p.previous !== 0 ? ((p.value - p.previous) / p.previous) * 100 : 0;
                 const arrow = Math.abs(delta) < 0.05 ? '·' : delta > 0 ? '▲' : '▼';
                 const color = Math.abs(delta) < 0.05 ? 'text-paper-white/55' : delta > 0 ? 'text-emerald-300' : 'text-red-300';
                 return (
-                  <span key={p.priceId} className="inline-flex items-center gap-1.5 font-mono text-xs">
+                  <span key={`${p.priceId}-${idx}`} className="inline-flex items-center gap-1.5 font-mono text-xs">
                     <span className="font-medium text-paper-white/95">
                       {locale === 'ar' ? p.commodityNameAr : p.commodityNameEn}
                     </span>

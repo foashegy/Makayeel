@@ -263,7 +263,7 @@ export default async function PricesPage({
                 return (
                   <div
                     key={s.slug}
-                    className="rounded-2xl border border-wheat-gold/30 bg-deep-navy p-6 text-paper-white shadow-card transition hover:shadow-card-hover hover:-translate-y-0.5 sm:col-span-2 xl:col-span-2"
+                    className="rounded-2xl border border-wheat-gold/30 bg-deep-navy p-6 text-paper-white shadow-card transition hover:shadow-card-hover hover:-translate-y-0.5 sm:col-span-2 xl:col-span-2 dark:bg-[#1C3352] dark:border-wheat-gold/60 dark:ring-1 dark:ring-wheat-gold/25"
                   >
                     <div className="mb-4 flex items-start gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-wheat-gold/15 text-wheat-gold">

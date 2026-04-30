@@ -142,6 +142,14 @@ export default async function CommodityPage({
                   {formatPrice(b.value, locale)}
                 </p>
                 <p className="text-xs text-navy-200 dark:text-paper-white/55">{commodity.unit}</p>
+                <p className="mt-2 font-mono text-[11px] text-navy-200 dark:text-paper-white/45" data-numeric>
+                  {new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', {
+                    timeZone: 'Africa/Cairo',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }).format(b.updatedAt)}
+                  {b.sourceRef ? <span className="opacity-70"> · {b.sourceRef.slice(0, 24)}</span> : null}
+                </p>
               </div>
             ))}
           </div>
