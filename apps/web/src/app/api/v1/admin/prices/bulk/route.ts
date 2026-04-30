@@ -7,13 +7,14 @@ import { cairoToday } from '@/lib/queries';
 export const dynamic = 'force-dynamic';
 
 const BulkSchema = z.object({
-  date: z.string().optional(),
+  // YYYY-MM-DD only — anything else is rejected before we hit `new Date()`.
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD').optional(),
   prices: z
     .array(
       z.object({
-        commoditySlug: z.string(),
-        sourceSlug: z.string(),
-        value: z.number().nonnegative(),
+        commoditySlug: z.string().regex(/^[a-z0-9-]+$/),
+        sourceSlug: z.string().regex(/^[a-z0-9-]+$/),
+        value: z.number().min(0).max(1_000_000),
       }),
     )
     .min(1)
@@ -31,6 +32,9 @@ export async function POST(req: Request) {
   if (!parsed.success) return jsonError(400, 'BAD_REQUEST', parsed.error.issues[0]?.message ?? 'Invalid input.');
 
   const date = parsed.data.date ? new Date(`${parsed.data.date}T00:00:00.000Z`) : cairoToday();
+  if (Number.isNaN(date.getTime())) {
+    return jsonError(400, 'BAD_REQUEST', `Invalid date: ${parsed.data.date}`);
+  }
 
   // Pre-resolve all slugs in two queries.
   const [commodities, sources] = await Promise.all([

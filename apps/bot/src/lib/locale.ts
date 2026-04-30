@@ -3,6 +3,10 @@ import type { Locale } from '@makayeel/i18n';
 import { prisma } from '@makayeel/db';
 
 export interface PendingExtraction {
+  /** Unique id (telegram message_id of the prompt) — included in callback_data
+   * so a confirm always applies to the photo it was generated for, even if a
+   * second photo arrived in between. */
+  id: number;
   prices: { commoditySlug: string; value: number; confidence: 'high' | 'medium' | 'low' }[];
   sourceLabel: string | null;
   sourceSlug: string | null;

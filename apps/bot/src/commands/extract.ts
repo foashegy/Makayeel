@@ -46,7 +46,12 @@ export async function photoHandler(ctx: BotContext) {
     return;
   }
 
+  // Use the photo message_id as the pending id — guaranteed unique per chat
+  // and serves as a stable correlator inside the confirm callback_data.
+  const pendingId = ctx.message?.message_id ?? Date.now();
+
   ctx.session.pendingExtraction = {
+    id: pendingId,
     prices: result.prices,
     sourceLabel: result.sourceLabel ?? null,
     sourceSlug: result.sourceSlug ?? null,
@@ -68,9 +73,12 @@ export async function photoHandler(ctx: BotContext) {
     : 'ميناء الإسكندرية (alex-port)';
   lines.push('', `_هتتسجل على ${targetSourceLabel} لتاريخ النهاردة._`);
 
+  // callback_data carries the pending id so a confirm tap that races with a
+  // second photo's session overwrite is detected and rejected, not silently
+  // applied to the wrong batch.
   const kb = new InlineKeyboard()
-    .text('✅ تأكيد', 'extract:confirm')
-    .text('❌ إلغاء', 'extract:cancel');
+    .text('✅ تأكيد', `extract:confirm:${pendingId}`)
+    .text('❌ إلغاء', `extract:cancel:${pendingId}`);
 
   await ctx.reply(lines.join('\n'), { parse_mode: 'Markdown', reply_markup: kb });
 }
@@ -80,11 +88,19 @@ export async function extractCallbackHandler(ctx: BotContext) {
     await ctx.answerCallbackQuery({ text: 'أدمن فقط', show_alert: false });
     return;
   }
-  const action = ctx.callbackQuery?.data?.split(':')[1];
+  const parts = ctx.callbackQuery?.data?.split(':') ?? [];
+  const action = parts[1];
+  const pendingIdInCb = parts[2] ? Number(parts[2]) : null;
   const pending = ctx.session.pendingExtraction;
 
   if (!pending) {
     await ctx.answerCallbackQuery({ text: 'مفيش استخراج معلق' });
+    return;
+  }
+  // Reject confirms that target a different photo than the one currently
+  // pending in session (race when 2 photos arrive close together).
+  if (pendingIdInCb !== null && pendingIdInCb !== pending.id) {
+    await ctx.answerCallbackQuery({ text: 'الصورة دي اتم استبدالها بصورة أحدث — اضغط على رسالة الأحدث' });
     return;
   }
   if (Date.now() - pending.createdAt > PENDING_TTL_MS) {
@@ -136,5 +152,5 @@ export async function extractCallbackHandler(ctx: BotContext) {
 
 export function registerExtractHandlers(bot: Bot<BotContext>) {
   bot.on('message:photo', photoHandler);
-  bot.callbackQuery(/^extract:(confirm|cancel)$/, extractCallbackHandler);
+  bot.callbackQuery(/^extract:(confirm|cancel)(?::\d+)?$/, extractCallbackHandler);
 }

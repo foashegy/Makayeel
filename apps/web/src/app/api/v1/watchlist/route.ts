@@ -5,7 +5,13 @@ import { jsonOk, jsonError } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
-const SlugSchema = z.object({ slug: z.string().min(1).max(80) });
+const SlugSchema = z.object({
+  slug: z.string().min(1).max(80).regex(/^[a-z0-9-]+$/, 'invalid slug'),
+});
+
+// Anti-DOS: cap watchlist size per user. A real watchlist should have a few
+// dozen items, not thousands. Anything beyond this signals abuse.
+const MAX_WATCHLIST_PER_USER = 50;
 
 async function ensureSession() {
   const session = await auth();
@@ -33,6 +39,18 @@ export async function POST(req: Request) {
   const commodity = await prisma.commodity.findUnique({ where: { slug: parsed.data.slug } });
   if (!commodity) return jsonError(404, 'NOT_FOUND', `Commodity ${parsed.data.slug} not found.`);
 
+  // If the user is already at the cap, only allow toggling existing items —
+  // never grow the watchlist further.
+  const [existing, count] = await Promise.all([
+    prisma.watchlist.findUnique({
+      where: { userId_commodityId: { userId, commodityId: commodity.id } },
+      select: { id: true },
+    }),
+    prisma.watchlist.count({ where: { userId } }),
+  ]);
+  if (!existing && count >= MAX_WATCHLIST_PER_USER) {
+    return jsonError(429, 'WATCHLIST_FULL', `Max ${MAX_WATCHLIST_PER_USER} items per user.`);
+  }
   const max = await prisma.watchlist.aggregate({
     where: { userId },
     _max: { position: true },
