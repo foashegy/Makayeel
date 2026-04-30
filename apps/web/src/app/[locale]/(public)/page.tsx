@@ -41,7 +41,7 @@ export default async function LandingPage({
                 <Link href={`/${locale}/prices`}>{t('hero.ctaPrimary')}</Link>
               </Button>
               <Button asChild variant="ghost">
-                <a href="https://t.me/MakayeelBot" target="_blank" rel="noreferrer">
+                <a href="https://t.me/Makayeel_Bot" target="_blank" rel="noreferrer">
                   {t('hero.ctaSecondary')}
                 </a>
               </Button>
