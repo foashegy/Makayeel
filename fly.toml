@@ -1,5 +1,6 @@
 # fly.toml — Makayeel Telegram bot worker
-# Pure polling worker (no HTTP). Long-polls Telegram + runs node-cron jobs.
+# Hybrid: polling by default + ready to flip to webhook by setting
+# TELEGRAM_WEBHOOK_URL=https://makayeel-bot.fly.dev as a Fly secret.
 
 app = 'makayeel-bot'
 primary_region = 'cdg'
@@ -10,6 +11,25 @@ primary_region = 'cdg'
 [env]
   NODE_ENV = 'production'
   TZ = 'Africa/Cairo'
+  PORT = '8080'
+
+# Always-on health-check + webhook-receiver. /healthz returns 200 in both
+# polling and webhook modes; /telegram/webhook handles updates only when
+# TELEGRAM_WEBHOOK_URL is set.
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[http_service.checks]]
+  grace_period = '10s'
+  interval = '30s'
+  method = 'GET'
+  path = '/healthz'
+  protocol = 'http'
+  timeout = '5s'
 
 [[vm]]
   cpu_kind = 'shared'

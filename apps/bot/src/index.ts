@@ -10,7 +10,8 @@
  *   • daily 07:00 Africa/Cairo → morning digest
  */
 
-import { Bot, session } from 'grammy';
+import http from 'node:http';
+import { Bot, session, webhookCallback } from 'grammy';
 import cron from 'node-cron';
 import { env } from './env';
 import { initSession, type BotContext } from './lib/locale';
@@ -106,18 +107,64 @@ async function start() {
     { command: 'help', description: 'مساعدة / Help' },
   ]);
 
-  // Webhook server is a Phase 2 enhancement — until then, run polling unconditionally.
-  // If TELEGRAM_WEBHOOK_URL is set, ensure no stale webhook is registered (would
-  // otherwise compete with polling and cause "Conflict: terminated by other getUpdates").
-  if (env.TELEGRAM_WEBHOOK_URL) {
-    console.warn(
-      '⚠️  TELEGRAM_WEBHOOK_URL is set but webhook mode is not implemented yet. ' +
-      'Falling back to long-polling and clearing any existing webhook.',
-    );
+  // Always start a minimal HTTP server with /healthz so Fly's [http_service]
+  // probe stays green regardless of mode. The /telegram/webhook path only
+  // routes if we're in webhook mode.
+  const port = Number(process.env.PORT ?? 8080);
+  const webhookPath = '/telegram/webhook';
+  const useWebhook = !!env.TELEGRAM_WEBHOOK_URL;
+  const webhookHandler = useWebhook
+    ? webhookCallback(bot, 'std/http', { secretToken: env.CRON_SECRET })
+    : null;
+
+  const server = http.createServer(async (req, res) => {
+    if (req.method === 'GET' && (req.url === '/healthz' || req.url === '/')) {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+      return;
+    }
+    if (useWebhook && webhookHandler && req.method === 'POST' && req.url === webhookPath) {
+      try {
+        const body = await new Promise<string>((resolve) => {
+          const chunks: Buffer[] = [];
+          req.on('data', (c) => chunks.push(c));
+          req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        });
+        const webRequest = new Request(`http://local${req.url}`, {
+          method: 'POST',
+          headers: req.headers as Record<string, string>,
+          body,
+        });
+        const webResponse = await webhookHandler(webRequest);
+        res.writeHead(webResponse.status, Object.fromEntries(webResponse.headers));
+        res.end(await webResponse.text());
+      } catch (err) {
+        console.error('webhook handler error:', err);
+        res.writeHead(500, { 'content-type': 'text/plain' });
+        res.end('internal error');
+      }
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  server.listen(port, () => console.info(`✅ HTTP server listening on :${port}`));
+  process.once('SIGINT', () => server.close());
+  process.once('SIGTERM', () => server.close());
+
+  if (useWebhook) {
+    const fullWebhookUrl = `${env.TELEGRAM_WEBHOOK_URL!.replace(/\/$/, '')}${webhookPath}`;
+    await bot.api.setWebhook(fullWebhookUrl, {
+      secret_token: env.CRON_SECRET,
+      drop_pending_updates: false,
+    });
+    console.info(`✅ bot in WEBHOOK mode → ${fullWebhookUrl}`);
+  } else {
+    // Polling: clear any stale webhook so getUpdates doesn't 409.
     await bot.api.deleteWebhook({ drop_pending_updates: true });
+    console.info('✅ bot in POLLING mode');
+    void bot.start();
   }
-  console.info('✅ starting bot in polling mode');
-  void bot.start();
 
   // ── Crons ───────────────────────────────────────────────────────────────
   // Every 30 min, aligned to :00 and :30.
