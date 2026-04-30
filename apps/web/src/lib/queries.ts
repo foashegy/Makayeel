@@ -110,6 +110,57 @@ export async function getCommodityBySlug(slug: string) {
  *
  * Single round-trip Postgres query (no N+1).
  */
+/**
+ * Aggregate today's mill quotes per commodity. Returns the median + range +
+ * count of FACTORY-type sources for every commodity that has at least one
+ * mill-attributed price today. The "crowd consensus" researcher's plan calls
+ * for, surfaced as a separate view on /prices.
+ */
+export async function getMillQuotesForToday() {
+  const today = cairoToday();
+  const rows = await prisma.price.findMany({
+    where: {
+      date: today,
+      source: { type: 'FACTORY' },
+    },
+    include: { commodity: true, source: true },
+  });
+
+  type Row = (typeof rows)[number];
+  const grouped = new Map<string, Row[]>();
+  for (const r of rows) {
+    const slug = r.commodity.slug;
+    const existing = grouped.get(slug) ?? [];
+    existing.push(r);
+    grouped.set(slug, existing);
+  }
+
+  const median = (xs: number[]): number => {
+    if (xs.length === 0) return 0;
+    const s = [...xs].sort((a, b) => a - b);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m]! : ((s[m - 1] ?? 0) + (s[m] ?? 0)) / 2;
+  };
+
+  return [...grouped.entries()]
+    .map(([slug, gs]) => {
+      const head = gs[0]!;
+      const values = gs.map((g) => Number(g.value));
+      return {
+        slug,
+        nameAr: head.commodity.nameAr,
+        nameEn: head.commodity.nameEn,
+        unit: head.commodity.unit,
+        category: head.commodity.category,
+        iconKey: head.commodity.iconKey,
+        millCount: gs.length,
+        median: median(values),
+        min: Math.min(...values),
+        max: Math.max(...values),
+      };
+    })
+    .sort((a, b) => b.millCount - a.millCount);
+}
 export async function getRecentSparklines(days: number): Promise<Map<string, number[]>> {
   const from = cairoDaysAgo(days);
   const rows = await prisma.price.findMany({

@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { PriceTable, type PriceTableRow, DeltaBadge, CommodityIcon, Sparkline, formatPrice } from '@makayeel/ui';
-import { getTodayPrices, getRecentSparklines } from '@/lib/queries';
+import { getTodayPrices, getRecentSparklines, getMillQuotesForToday } from '@/lib/queries';
 import { auth } from '@/auth';
 import { prisma } from '@makayeel/db';
 import { WatchlistStar } from '@/components/watchlist-star';
@@ -34,7 +34,7 @@ export default async function PricesPage({
   const active = (category?.toUpperCase() ?? null) as CommodityCategory | null;
   const session = await auth();
   const userId = session?.user?.id ?? null;
-  const [rows, sparklines, watchlist] = await Promise.all([
+  const [rows, sparklines, watchlist, millQuotes] = await Promise.all([
     getTodayPrices(active ? { category: active } : undefined),
     getRecentSparklines(30),
     userId
@@ -42,8 +42,10 @@ export default async function PricesPage({
           .findMany({ where: { userId }, include: { commodity: { select: { slug: true } } } })
           .then((rs) => new Set(rs.map((r) => r.commodity.slug)))
       : Promise.resolve(new Set<string>()),
+    getMillQuotesForToday(),
   ]);
-  const activeView: 'summary' | 'sources' = view === 'sources' ? 'sources' : 'summary';
+  const activeView: 'summary' | 'sources' | 'mills' =
+    view === 'sources' ? 'sources' : view === 'mills' ? 'mills' : 'summary';
 
   // Per-commodity summary: median price, range, delta, any estimated source.
   // This is the "buyer-think" view (Product/UX seat) — one number per commodity.
@@ -249,6 +251,18 @@ export default async function PricesPage({
           >
             {locale === 'ar' ? 'بالمصدر' : 'By source'}
           </a>
+          {millQuotes.length > 0 ? (
+            <a
+              href={`/${locale}/prices?view=mills${active ? `&category=${active.toLowerCase()}` : ''}`}
+              className={
+                activeView === 'mills'
+                  ? 'rounded-full bg-deep-navy px-4 py-1.5 text-paper-white dark:bg-wheat-gold dark:text-deep-navy'
+                  : 'rounded-full px-4 py-1.5 text-deep-navy hover:bg-navy/5 dark:text-paper-white dark:hover:bg-paper-white/10'
+              }
+            >
+              🏭 {locale === 'ar' ? `المصانع · ${millQuotes.length}` : `Mills · ${millQuotes.length}`}
+            </a>
+          ) : null}
         </div>
 
         {activeView === 'summary' ? (
@@ -359,7 +373,7 @@ export default async function PricesPage({
               );
             })}
           </div>
-        ) : (
+        ) : activeView === 'sources' ? (
           /* Full source breakdown — power-user view */
           <div className="mb-8">
             <PriceTable
@@ -374,6 +388,56 @@ export default async function PricesPage({
               }}
               emptyLabel={t('noData')}
             />
+          </div>
+        ) : (
+          /* Mills view — crowd consensus from FACTORY-type sources only.
+             This is the "moat" surface: shows how many mills have submitted
+             today + the median + range. Builds buyer trust + signals network
+             effects to mill operators ("look how many of your peers are here"). */
+          <div className="mb-8">
+            <div className="mb-4 rounded-2xl border border-wheat-gold/30 bg-wheat-gold/5 p-4 text-sm text-deep-navy dark:bg-wheat-gold/10 dark:text-paper-white">
+              {locale === 'ar'
+                ? '🏭 الأسعار اللي بعتوها أصحاب المصانع نفسهم — Crowd consensus من ' + millQuotes.length + ' سلعة. كل سعر هنا متعرّض في صورة لوحة أسعار رسمية من المصنع.'
+                : `🏭 Prices submitted by mill operators themselves — crowd consensus across ${millQuotes.length} commodities. Every quote here is sourced from an official mill price-sheet photo.`}
+            </div>
+            {millQuotes.length === 0 ? (
+              <p className="rounded-xl border border-navy/8 bg-white p-8 text-center text-navy-200 dark:border-paper-white/10 dark:bg-[#152535] dark:text-paper-white/55">
+                {locale === 'ar' ? 'مفيش أسعار من المصانع لسه. شجع مصنعك يبعت /عرض على بوت تيليجرام.' : 'No mill quotes yet. Invite your mill to submit via /عرض on Telegram.'}
+              </p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {millQuotes.map((m) => {
+                  const name = locale === 'ar' ? m.nameAr : m.nameEn;
+                  const subtitle = locale === 'ar' ? m.nameEn : m.nameAr;
+                  return (
+                    <div
+                      key={m.slug}
+                      className="rounded-2xl border border-wheat-gold/30 bg-white p-5 shadow-card transition hover:shadow-card-hover hover:-translate-y-0.5 dark:border-wheat-gold/40 dark:bg-[#152535]"
+                    >
+                      <div className="mb-3 flex items-start gap-3">
+                        <CommodityIcon slug={m.slug} iconKey={m.iconKey} nameAr={m.nameAr} size="md" />
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate font-display text-base text-deep-navy dark:text-paper-white">{name}</h3>
+                          <p className="truncate text-[11px] text-navy-200 dark:text-paper-white/55">{subtitle}</p>
+                        </div>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-wheat-gold/15 px-2 py-0.5 text-[11px] font-semibold text-wheat-gold">
+                          🏭 {m.millCount}
+                        </span>
+                      </div>
+                      <div className="font-mono text-3xl font-bold leading-none tracking-tight text-deep-navy dark:text-wheat-gold" data-numeric>
+                        {formatPrice(m.median, locale)}
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-navy-200 dark:text-paper-white/55" data-numeric>
+                        <span>{m.unit}</span>
+                        <span>
+                          {locale === 'ar' ? 'مدى' : 'Range'}: {formatPrice(m.min, locale)} – {formatPrice(m.max, locale)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
