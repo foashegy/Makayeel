@@ -1,6 +1,9 @@
 import { getTranslations } from 'next-intl/server';
 import { PriceTable, type PriceTableRow, DeltaBadge, CommodityIcon, Sparkline, formatPrice } from '@makayeel/ui';
 import { getTodayPrices, getRecentSparklines } from '@/lib/queries';
+import { auth } from '@/auth';
+import { prisma } from '@makayeel/db';
+import { WatchlistStar } from '@/components/watchlist-star';
 import type { Locale } from '@makayeel/i18n';
 import { isLocale } from '@makayeel/i18n';
 import { notFound } from 'next/navigation';
@@ -29,9 +32,16 @@ export default async function PricesPage({
 
   const t = await getTranslations({ locale, namespace: 'prices' });
   const active = (category?.toUpperCase() ?? null) as CommodityCategory | null;
-  const [rows, sparklines] = await Promise.all([
+  const session = await auth();
+  const userId = session?.user?.id ?? null;
+  const [rows, sparklines, watchlist] = await Promise.all([
     getTodayPrices(active ? { category: active } : undefined),
     getRecentSparklines(30),
+    userId
+      ? prisma.watchlist
+          .findMany({ where: { userId }, include: { commodity: { select: { slug: true } } } })
+          .then((rs) => new Set(rs.map((r) => r.commodity.slug)))
+      : Promise.resolve(new Set<string>()),
   ]);
   const activeView: 'summary' | 'sources' = view === 'sources' ? 'sources' : 'summary';
 
@@ -266,7 +276,10 @@ export default async function PricesPage({
                         <h3 className="truncate font-display text-2xl text-paper-white">{name}</h3>
                         <p className="truncate text-xs text-paper-white/60">{subtitle}</p>
                       </div>
-                      <DeltaBadge current={s.median} previous={s.medianPrev} locale={locale} size="md" />
+                      <div className="flex shrink-0 items-center gap-2">
+                        <WatchlistStar slug={s.slug} initialPinned={watchlist.has(s.slug)} signedIn={!!userId} locale={locale} />
+                        <DeltaBadge current={s.median} previous={s.medianPrev} locale={locale} size="md" />
+                      </div>
                     </div>
                     <div className="flex items-end justify-between gap-4">
                       <div className="font-mono text-6xl font-bold leading-none tracking-tight text-wheat-gold" data-numeric>
@@ -316,7 +329,10 @@ export default async function PricesPage({
                       </div>
                       <p className="truncate text-[11px] text-navy-200">{subtitle}</p>
                     </div>
-                    <DeltaBadge current={s.median} previous={s.medianPrev} locale={locale} size="sm" />
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <WatchlistStar slug={s.slug} initialPinned={watchlist.has(s.slug)} signedIn={!!userId} locale={locale} />
+                      <DeltaBadge current={s.median} previous={s.medianPrev} locale={locale} size="sm" />
+                    </div>
                   </div>
                   <div className="flex items-end justify-between gap-3">
                     <div className="font-mono text-4xl font-bold leading-none tracking-tight text-deep-navy dark:text-paper-white" data-numeric>
