@@ -11,8 +11,21 @@ const steps = [
   'corepack prepare pnpm@10.33.0 --activate',
   'pnpm install --frozen-lockfile',
   'pnpm --filter @makayeel/db generate',
-  'pnpm --filter @makayeel/db migrate:deploy',
 ];
+
+// One-shot recovery: if a previous build failed mid-migration, Prisma marks
+// the row in `_prisma_migrations` as failed and refuses subsequent deploys.
+// Mark the affected migration as rolled-back so the now-idempotent SQL re-runs.
+// `migrate resolve` errors if the migration is in any other state — that's
+// fine, we just swallow it.
+const RECOVER_MIGRATIONS = ['20260501170000_price_origin'];
+for (const m of RECOVER_MIGRATIONS) {
+  steps.push(
+    `pnpm --filter @makayeel/db exec prisma migrate resolve --rolled-back ${m} || echo "[netlify-build] ${m} not in failed state, continuing"`,
+  );
+}
+
+steps.push('pnpm --filter @makayeel/db migrate:deploy');
 
 if (process.env.SEED_DB === '1') {
   steps.push('pnpm --filter @makayeel/db seed');
