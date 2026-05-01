@@ -1,7 +1,10 @@
 /**
  * Locale-aware formatters for Makayeel.
  *
- * • Numbers: ar → Arabic-Indic digits (ar-EG), en → Western digits (en-US).
+ * • Numbers: always Western digits (en-US) — even on Arabic pages — because
+ *   feed-mill operators read prices in Western digits universally; mixing
+ *   Arabic-Indic digits hurts scanability. Locale only affects currency
+ *   suffix (ج.م vs EGP) and date formatting.
  * • Dates: always in Africa/Cairo timezone.
  * • Prices: rendered with thousands separator and a currency suffix.
  */
@@ -19,8 +22,11 @@ function toNumber(v: Numeric): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function formatNumber(value: Numeric, locale: Locale, options?: Intl.NumberFormatOptions): string {
-  return new Intl.NumberFormat(localeDateLocales[locale], options).format(toNumber(value));
+export function formatNumber(value: Numeric, _locale: Locale, options?: Intl.NumberFormatOptions): string {
+  // Force Western digits (1, 2, 3…) on both locales — Arabic-Indic digits
+  // (٢٬٥٠٠) are technically correct but harder to scan in price tables.
+  // Egyptian feed-mill operators consistently use Western digits in WhatsApp.
+  return new Intl.NumberFormat('en-US', options).format(toNumber(value));
 }
 
 export function formatPrice(value: Numeric, locale: Locale, currency = 'EGP'): string {
