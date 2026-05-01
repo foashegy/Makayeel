@@ -3,6 +3,8 @@ import type { BotContext } from '../lib/locale';
 import { prisma } from '@makayeel/db';
 import { scrapeRawMaterials, scrapeCompoundFeeds } from '../lib/mazra3ty-scraper';
 import { scrapeElmorshdRawMaterials, scrapeElmorshdCompoundFeeds } from '../lib/elmorshd-scraper';
+import { scrapeBarakaRawMaterials, scrapeBarakaCompoundFeeds } from '../lib/baraka-scraper';
+import { scrapeEsraatradeRawMaterials, scrapeEsraatradeCompoundFeeds } from '../lib/esraatrade-scraper';
 import { ensureSource, upsertScrapedProducts } from '../lib/queries';
 import type { ScrapedProduct } from '../lib/mazra3ty-scraper';
 
@@ -17,12 +19,17 @@ export interface SiteResult {
 export interface ScrapeRunReport {
   mazra3ty: { raw: SiteResult; feed: SiteResult };
   elmorshd: { raw: SiteResult; feed: SiteResult };
+  baraka: { raw: SiteResult; feed: SiteResult };
+  esraatrade: { raw: SiteResult; feed: SiteResult };
 }
 
 interface SiteConfig {
   slug: string;
   nameAr: string;
   nameEn: string;
+  /** Source type to register the source under. Aggregator boards = EXCHANGE,
+   * direct mill price pages = FACTORY, retailers = WHOLESALER. */
+  type: 'EXCHANGE' | 'FACTORY' | 'WHOLESALER';
   scrapeRaw: () => Promise<{ products: ScrapedProduct[]; pageDate?: string | null }>;
   scrapeFeed: () => Promise<{ products: ScrapedProduct[]; pageDate?: string | null }>;
 }
@@ -32,6 +39,7 @@ const SITES: SiteConfig[] = [
     slug: 'mazra3ty',
     nameAr: 'مزرعتي',
     nameEn: 'Mazra3ty',
+    type: 'EXCHANGE',
     scrapeRaw: scrapeRawMaterials,
     scrapeFeed: scrapeCompoundFeeds,
   },
@@ -39,8 +47,25 @@ const SITES: SiteConfig[] = [
     slug: 'elmorshd',
     nameAr: 'المرشد للدواجن',
     nameEn: 'Al-Morshid for Poultry',
+    type: 'EXCHANGE',
     scrapeRaw: scrapeElmorshdRawMaterials,
     scrapeFeed: scrapeElmorshdCompoundFeeds,
+  },
+  {
+    slug: 'baraka-feed',
+    nameAr: 'بركة للأعلاف',
+    nameEn: 'Baraka Feed',
+    type: 'FACTORY',
+    scrapeRaw: scrapeBarakaRawMaterials,
+    scrapeFeed: scrapeBarakaCompoundFeeds,
+  },
+  {
+    slug: 'esraatrade',
+    nameAr: 'إسراء تريد',
+    nameEn: 'Esraa Trade',
+    type: 'WHOLESALER',
+    scrapeRaw: scrapeEsraatradeRawMaterials,
+    scrapeFeed: scrapeEsraatradeCompoundFeeds,
   },
 ];
 
@@ -106,23 +131,25 @@ async function runOne(
 }
 
 export async function runMazra3tyScrape(trigger: 'cron' | 'manual' = 'manual'): Promise<ScrapeRunReport> {
+  const empty = (): SiteResult => ({ written: 0, created: [], errors: [] });
   const report: ScrapeRunReport = {
-    mazra3ty: { raw: { written: 0, created: [], errors: [] }, feed: { written: 0, created: [], errors: [] } },
-    elmorshd: { raw: { written: 0, created: [], errors: [] }, feed: { written: 0, created: [], errors: [] } },
+    mazra3ty: { raw: empty(), feed: empty() },
+    elmorshd: { raw: empty(), feed: empty() },
+    baraka: { raw: empty(), feed: empty() },
+    esraatrade: { raw: empty(), feed: empty() },
   };
 
   for (const site of SITES) {
-    const source = await ensureSource(site.slug, site.nameAr, site.nameEn, 'EXCHANGE');
+    const source = await ensureSource(site.slug, site.nameAr, site.nameEn, site.type);
     const sourceWithSlug = { id: source.id, slug: site.slug };
     const [raw, feed] = await Promise.all([
       runOne(sourceWithSlug, site.scrapeRaw, `${site.slug} raw`, 'raw_materials', trigger),
       runOne(sourceWithSlug, site.scrapeFeed, `${site.slug} feed`, 'compound_feeds', trigger),
     ]);
-    if (site.slug === 'mazra3ty') {
-      report.mazra3ty = { raw, feed };
-    } else if (site.slug === 'elmorshd') {
-      report.elmorshd = { raw, feed };
-    }
+    if (site.slug === 'mazra3ty') report.mazra3ty = { raw, feed };
+    else if (site.slug === 'elmorshd') report.elmorshd = { raw, feed };
+    else if (site.slug === 'baraka-feed') report.baraka = { raw, feed };
+    else if (site.slug === 'esraatrade') report.esraatrade = { raw, feed };
   }
 
   return report;
@@ -150,6 +177,10 @@ export async function runMazra3tyScrapeAndNotify(bot: Bot<BotContext>) {
   lines.push(...formatSiteLine('مزرعتي', report.mazra3ty));
   lines.push('');
   lines.push(...formatSiteLine('المرشد للدواجن', report.elmorshd));
+  lines.push('');
+  lines.push(...formatSiteLine('بركة للأعلاف', report.baraka));
+  lines.push('');
+  lines.push(...formatSiteLine('إسراء تريد', report.esraatrade));
 
   try {
     await bot.api.sendMessage(ADMIN_ID, lines.join('\n'), { parse_mode: 'Markdown' });

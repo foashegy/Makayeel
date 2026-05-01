@@ -13,13 +13,19 @@ export async function scrapeHandler(ctx: BotContext) {
     const report = await runMazra3tyScrape();
     const totalWritten =
       report.mazra3ty.raw.written + report.mazra3ty.feed.written +
-      report.elmorshd.raw.written + report.elmorshd.feed.written;
+      report.elmorshd.raw.written + report.elmorshd.feed.written +
+      report.baraka.raw.written + report.baraka.feed.written +
+      report.esraatrade.raw.written + report.esraatrade.feed.written;
     const totalCreated =
       report.mazra3ty.raw.created.length + report.mazra3ty.feed.created.length +
-      report.elmorshd.raw.created.length + report.elmorshd.feed.created.length;
+      report.elmorshd.raw.created.length + report.elmorshd.feed.created.length +
+      report.baraka.raw.created.length + report.baraka.feed.created.length +
+      report.esraatrade.raw.created.length + report.esraatrade.feed.created.length;
     const allErrors = [
       ...report.mazra3ty.raw.errors, ...report.mazra3ty.feed.errors,
       ...report.elmorshd.raw.errors, ...report.elmorshd.feed.errors,
+      ...report.baraka.raw.errors, ...report.baraka.feed.errors,
+      ...report.esraatrade.raw.errors, ...report.esraatrade.feed.errors,
     ];
 
     const lines = [`✅ *تم السحب — ${totalWritten} سعر${totalCreated > 0 ? `, +${totalCreated} منتج جديد` : ''}*`, ''];
@@ -30,6 +36,14 @@ export async function scrapeHandler(ctx: BotContext) {
     lines.push('*المرشد للدواجن:*');
     lines.push(`  🌽 خامات: ${report.elmorshd.raw.written}${report.elmorshd.raw.created.length > 0 ? ` (+${report.elmorshd.raw.created.length})` : ''}`);
     lines.push(`  🐔 أعلاف: ${report.elmorshd.feed.written}${report.elmorshd.feed.created.length > 0 ? ` (+${report.elmorshd.feed.created.length})` : ''}`);
+    lines.push('');
+    lines.push('*بركة للأعلاف:*');
+    lines.push(`  🌽 خامات: ${report.baraka.raw.written}${report.baraka.raw.created.length > 0 ? ` (+${report.baraka.raw.created.length})` : ''}`);
+    lines.push(`  🐔 أعلاف: ${report.baraka.feed.written}${report.baraka.feed.created.length > 0 ? ` (+${report.baraka.feed.created.length})` : ''}`);
+    lines.push('');
+    lines.push('*إسراء تريد:*');
+    lines.push(`  🌽 خامات: ${report.esraatrade.raw.written}${report.esraatrade.raw.created.length > 0 ? ` (+${report.esraatrade.raw.created.length})` : ''}`);
+    lines.push(`  🐔 أعلاف: ${report.esraatrade.feed.written}${report.esraatrade.feed.created.length > 0 ? ` (+${report.esraatrade.feed.created.length})` : ''}`);
 
     if (allErrors.length > 0) {
       lines.push('', '⚠️ أخطاء:');

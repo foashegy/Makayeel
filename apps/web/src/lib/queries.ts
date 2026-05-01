@@ -41,8 +41,7 @@ export async function getTodayPrices(options?: {
   category?: CommodityCategory;
 }): Promise<TodayPriceRow[]> {
   const today = cairoToday();
-  let effectiveDate = today;
-  const yesterday = cairoDaysAgo(1);
+  const lookbackFloor = cairoDaysAgo(14);
 
   const baseWhere = {
     archivedAt: null as Date | null,
@@ -53,54 +52,52 @@ export async function getTodayPrices(options?: {
     source: { isActive: true },
   };
 
-  let rows = await prisma.price.findMany({
-    where: { ...baseWhere, date: today },
-    include: { commodity: true, source: true },
-    orderBy: [{ commodity: { displayOrder: 'asc' } }, { source: { slug: 'asc' } }],
-  });
-
-  // If today's scrape hasn't run yet (typical between 00:00 and 06:00 Cairo),
-  // fall back to the most recent date that DOES have data — so /prices is
-  // never empty after the daily rollover. We look back at most 7 days.
-  if (rows.length === 0) {
-    const mostRecent = await prisma.price.findFirst({
-      where: { ...baseWhere, date: { lt: today, gte: cairoDaysAgo(7) } },
-      orderBy: { date: 'desc' },
-      select: { date: true },
-    });
-    if (mostRecent) {
-      effectiveDate = mostRecent.date;
-      rows = await prisma.price.findMany({
-        where: { ...baseWhere, date: effectiveDate },
-        include: { commodity: true, source: true },
-        orderBy: [{ commodity: { displayOrder: 'asc' } }, { source: { slug: 'asc' } }],
-      });
-    }
-  }
-
-  if (rows.length === 0) return [];
-
-  const commodityIds = [...new Set(rows.map((r) => r.commodityId))];
-  const sourceIds = [...new Set(rows.map((r) => r.sourceId))];
-
-  // Yesterday relative to whichever date we ended up rendering. If we fell
-  // back to a stale date, the delta should still compare against that day's
-  // prior reading, not against today's calendar yesterday.
-  const prevDate = new Date(effectiveDate.getTime() - 86_400_000);
-  const prevRows = await prisma.price.findMany({
+  // Per-commodity-source fallback: a single fetch of the last 14 days, then
+  // pick the latest row per (commodity × source). This way a commodity that
+  // hasn't been updated today STILL renders with its last known price (and
+  // a "stale" indicator), instead of disappearing entirely. Fixes the bug
+  // where one new photo for a single commodity blanked out everything else.
+  // 5K-row cap — with current 30 commodities × ~5 sources × 14 days the
+  // upper bound is ~2.1K rows. The cap is a safety net for when commodity
+  // count grows; well past that we should switch to a window-function SQL
+  // query that picks DISTINCT ON (commodityId, sourceId).
+  const recent = await prisma.price.findMany({
     where: {
-      date: prevDate,
-      archivedAt: null,
-      commodityId: { in: commodityIds },
-      sourceId: { in: sourceIds },
+      ...baseWhere,
+      date: { gte: lookbackFloor, lte: today },
     },
-    select: { commodityId: true, sourceId: true, value: true },
+    include: { commodity: true, source: true },
+    orderBy: { date: 'desc' },
+    take: 5000,
   });
-  void yesterday; // kept for backward-compat / future use
 
-  const prevMap = new Map<string, number>();
-  for (const p of prevRows) {
-    prevMap.set(`${p.commodityId}|${p.sourceId}`, Number(p.value));
+  if (recent.length === 0) return [];
+
+  // Keep the latest row per (commodityId, sourceId).
+  const latestByPair = new Map<string, (typeof recent)[number]>();
+  for (const r of recent) {
+    const key = `${r.commodityId}|${r.sourceId}`;
+    if (!latestByPair.has(key)) latestByPair.set(key, r);
+  }
+  const rows = [...latestByPair.values()].sort((a, b) => {
+    const order = a.commodity.displayOrder - b.commodity.displayOrder;
+    if (order !== 0) return order;
+    return a.source.slug.localeCompare(b.source.slug);
+  });
+
+  // Per-pair previous: the second-most-recent row in the lookback window for
+  // that pair. Cleaner than "yesterday" because the delta now reflects the
+  // ACTUAL previous reading the user saw, not a calendar-yesterday that may
+  // not exist for this source.
+  const prevByPair = new Map<string, number>();
+  const seenForPrev = new Set<string>();
+  for (const r of recent) {
+    const key = `${r.commodityId}|${r.sourceId}`;
+    if (!seenForPrev.has(key)) {
+      seenForPrev.add(key); // skip the latest
+      continue;
+    }
+    if (!prevByPair.has(key)) prevByPair.set(key, Number(r.value));
   }
 
   return rows.map((r) => ({
@@ -116,7 +113,7 @@ export async function getTodayPrices(options?: {
     sourceNameEn: r.source.nameEn,
     sourceType: r.source.type,
     value: Number(r.value),
-    previous: prevMap.get(`${r.commodityId}|${r.sourceId}`) ?? null,
+    previous: prevByPair.get(`${r.commodityId}|${r.sourceId}`) ?? null,
     unit: r.commodity.unit,
     date: r.date.toISOString(),
     isEstimated: r.isEstimated,
