@@ -2,6 +2,7 @@
 export * from './tokens';
 export { cn } from './lib/cn';
 export * from './lib/format';
+export { logger } from './lib/logger';
 
 // Shadcn primitives
 export * from './components/button';

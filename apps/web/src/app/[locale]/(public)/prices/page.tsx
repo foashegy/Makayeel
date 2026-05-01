@@ -4,6 +4,7 @@ import { getTodayPrices, getRecentSparklines, getMillQuotesForToday } from '@/li
 import { auth } from '@/auth';
 import { prisma } from '@makayeel/db';
 import { WatchlistStar } from '@/components/watchlist-star';
+import { RefreshButton } from '@/components/refresh-button';
 import type { Locale } from '@makayeel/i18n';
 import { isLocale } from '@makayeel/i18n';
 import { notFound } from 'next/navigation';
@@ -186,6 +187,9 @@ export default async function PricesPage({
                 {locale === 'ar' ? 'آخر تحديث: ' : 'Updated: '}
                 {locale === 'ar' ? updatedLabelAr : updatedLabelEn}
               </span>
+            ) : null}
+            {latestUpdated ? (
+              <RefreshButton locale={locale} lastUpdated={latestUpdated.toISOString()} />
             ) : null}
           </div>
           <a
