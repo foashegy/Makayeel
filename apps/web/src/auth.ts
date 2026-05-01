@@ -11,6 +11,12 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      // Auto-link a Google sign-in to a pre-existing User row sharing the
+      // same email (e.g. an admin seeded directly into Postgres before any
+      // Google login). Safe here because Google verifies email ownership
+      // before issuing the OAuth token. Without this, foashegy@gmail.com
+      // (already an ADMIN row) gets `OAuthAccountNotLinked` on first login.
+      allowDangerousEmailAccountLinking: true,
     }),
   );
 }
