@@ -186,6 +186,10 @@ model Price {
   isEstimated Boolean  @default(false)
   // Free-text reference to where the number came from (e.g. "VetPen 28-Apr-2026").
   sourceRef   String?
+  // Origin tag for the same commodity from different countries — e.g. yellow-corn
+  // sells as Argentine/Brazilian/Ukrainian or local. NULL = unspecified/mixed.
+  // Codes: AR | BR | UA | US | RU | local | null
+  origin      String?
   // Soft-delete columns. Reads filter `archivedAt: null` to hide a bad row.
   // Never blank-out a Price in place — archive it. Audit trail (PriceAudit)
   // is independent and lives forever.
@@ -198,7 +202,7 @@ model Price {
   source    Source    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   enteredBy User?     @relation("EnteredBy", fields: [enteredById], references: [id], onDelete: SetNull)
 
-  @@unique([commodityId, sourceId, date])
+  @@unique([commodityId, sourceId, date, origin])
   @@index([date])
   @@index([commodityId, date])
   @@index([sourceId, date])

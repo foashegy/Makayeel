@@ -1,4 +1,4 @@
-import { prisma } from '@makayeel/db';
+import { prisma, getCanonicalSlug } from '@makayeel/db';
 import type { Commodity } from '@makayeel/db/types';
 import { formatInTimeZone } from 'date-fns-tz';
 
@@ -157,6 +157,9 @@ export interface ScrapedProductUpsert {
   nameAr: string;
   nameEn: string;
   slug: string;
+  /** Explicit origin from the scraper (e.g. Claude). If null/undefined, the
+   * canonical mapper still infers origin from a legacy slug. Explicit wins. */
+  origin?: string | null;
   category: 'GRAINS' | 'PROTEINS' | 'BYPRODUCTS' | 'ADDITIVES' | 'OILS' | 'FINISHED_FEED';
   unit: string;
   value: number;
@@ -226,77 +229,75 @@ export async function upsertScrapedProducts(
   sourceId: string,
   sourceRef?: string,
   audit?: AuditMeta,
-): Promise<{ written: number; createdCommodities: string[] }> {
+): Promise<{ written: number; createdCommodities: string[]; skipped: string[] }> {
   const date = cairoToday();
-  const createdCommodities: string[] = [];
   let written = 0;
+  const skipped: string[] = [];
 
   // Resolve sourceSlug once for audit notes — sources are stable.
   const sourceRow = await prisma.source.findUnique({ where: { id: sourceId }, select: { slug: true } });
   const sourceSlug = sourceRow?.slug ?? sourceId;
 
-  // Two batched lookups instead of N: existing commodities by slug, and
-  // existing prices for this (source × date) tuple. Cuts scraper round-trips
-  // from ~4N to ~2 + 2N. Auto-created commodities still happen one-at-a-time
-  // because we need the inserted row, but that's bounded by createdCommodities.
-  const slugs = products.map((p) => p.slug);
-  const existingCommodities = await prisma.commodity.findMany({ where: { slug: { in: slugs } } });
-  const commodityBySlug = new Map(existingCommodities.map((c) => [c.slug, c]));
-
-  let displayOrderCursor: number | null = null;
+  // Map every scraped product to its canonical {slug, origin}. Anything not
+  // recognised is dropped (logged in `skipped`) — we never auto-create a
+  // commodity from a scraper anymore. New canonical commodities require a
+  // code change to canonical-commodities.ts.
+  type Resolved = ScrapedProductUpsert & { canonicalSlug: string; resolvedOrigin: string | null };
+  const resolved: Resolved[] = [];
   for (const p of products) {
-    let commodity = commodityBySlug.get(p.slug);
-    if (!commodity) {
-      if (displayOrderCursor === null) {
-        const max = await prisma.commodity.aggregate({ _max: { displayOrder: true } });
-        displayOrderCursor = max._max.displayOrder ?? 0;
-      }
-      displayOrderCursor++;
-      commodity = await prisma.commodity.create({
-        data: {
-          slug: p.slug,
-          nameAr: p.nameAr,
-          nameEn: p.nameEn,
-          category: p.category,
-          unit: p.unit,
-          displayOrder: displayOrderCursor,
-        },
-      });
-      commodityBySlug.set(p.slug, commodity);
-      createdCommodities.push(p.slug);
+    const target = getCanonicalSlug(p.slug);
+    if (!target) {
+      skipped.push(p.slug);
+      continue;
     }
+    // Explicit origin from scraper wins over legacy-mapped origin.
+    const finalOrigin = p.origin !== undefined ? (p.origin ?? null) : target.origin;
+    resolved.push({ ...p, canonicalSlug: target.slug, resolvedOrigin: finalOrigin });
   }
 
-  // One round-trip for ALL existing prices in this batch.
-  const commodityIds = [...commodityBySlug.values()].map((c) => c.id);
-  const existingPrices = await prisma.price.findMany({
-    where: { sourceId, date, commodityId: { in: commodityIds } },
-    select: { id: true, commodityId: true, value: true },
-  });
-  const existingByCommodityId = new Map(
-    existingPrices.map((e) => [e.commodityId, { id: e.id, value: Number(e.value) }]),
-  );
+  if (skipped.length > 0) {
+    console.warn(`[upsertScrapedProducts] skipping ${skipped.length} non-canonical slugs:`, skipped);
+  }
 
-  for (const p of products) {
-    const commodity = commodityBySlug.get(p.slug);
-    if (!commodity) continue;
-    const prev = existingByCommodityId.get(commodity.id) ?? null;
-    const upserted = await prisma.price.upsert({
-      where: {
-        commodityId_sourceId_date: { commodityId: commodity.id, sourceId, date },
-      },
-      create: { commodityId: commodity.id, sourceId, date, value: p.value, sourceRef },
-      update: { value: p.value, sourceRef, isEstimated: false },
-      select: { id: true },
+  const canonicalSlugs = [...new Set(resolved.map((r) => r.canonicalSlug))];
+  const existingCommodities = await prisma.commodity.findMany({ where: { slug: { in: canonicalSlugs } } });
+  const commodityBySlug = new Map(existingCommodities.map((c) => [c.slug, c]));
+
+  for (const r of resolved) {
+    const commodity = commodityBySlug.get(r.canonicalSlug);
+    if (!commodity) {
+      // Canonical slug not in DB yet — log and skip; canonical seed handles creation.
+      skipped.push(r.canonicalSlug);
+      continue;
+    }
+    const existing = await prisma.price.findFirst({
+      where: { commodityId: commodity.id, sourceId, date, origin: r.resolvedOrigin, archivedAt: null },
+      select: { id: true, value: true },
     });
+    const oldValue = existing ? Number(existing.value) : null;
+    let priceId: string;
+    if (existing) {
+      const updated = await prisma.price.update({
+        where: { id: existing.id },
+        data: { value: r.value, sourceRef, isEstimated: false },
+        select: { id: true },
+      });
+      priceId = updated.id;
+    } else {
+      const created = await prisma.price.create({
+        data: { commodityId: commodity.id, sourceId, date, value: r.value, sourceRef, origin: r.resolvedOrigin },
+        select: { id: true },
+      });
+      priceId = created.id;
+    }
     if (audit) {
       await recordPriceAudit({
-        priceId: upserted.id,
-        commoditySlug: p.slug,
+        priceId,
+        commoditySlug: r.canonicalSlug,
         sourceSlug,
         date,
-        oldValue: prev ? prev.value : null,
-        newValue: p.value,
+        oldValue,
+        newValue: r.value,
         source: audit.source,
         actorUserId: audit.actorUserId ?? null,
         note: sourceRef,
@@ -304,7 +305,7 @@ export async function upsertScrapedProducts(
     }
     written++;
   }
-  return { written, createdCommodities };
+  return { written, createdCommodities: [], skipped };
 }
 
 export async function upsertPricesForToday(
@@ -336,12 +337,20 @@ export async function upsertPricesForToday(
     const c = bySlug.get(p.commoditySlug);
     if (!c) { skipped.push(p.commoditySlug); continue; }
     const prev = existingByCommodityId.get(c.id) ?? null;
-    const upserted = await prisma.price.upsert({
-      where: { commodityId_sourceId_date: { commodityId: c.id, sourceId: source.id, date } },
-      create: { commodityId: c.id, sourceId: source.id, date, value: p.value, sourceRef },
-      update: { value: p.value, sourceRef, isEstimated: false },
+    const existing = await prisma.price.findFirst({
+      where: { commodityId: c.id, sourceId: source.id, date, origin: null, archivedAt: null },
       select: { id: true },
     });
+    const upserted = existing
+      ? await prisma.price.update({
+          where: { id: existing.id },
+          data: { value: p.value, sourceRef, isEstimated: false },
+          select: { id: true },
+        })
+      : await prisma.price.create({
+          data: { commodityId: c.id, sourceId: source.id, date, value: p.value, sourceRef, origin: null },
+          select: { id: true },
+        });
     if (audit) {
       await recordPriceAudit({
         priceId: upserted.id,

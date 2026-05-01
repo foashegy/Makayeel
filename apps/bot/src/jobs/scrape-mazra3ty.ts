@@ -104,6 +104,7 @@ async function runOne(
         nameAr: p.nameAr,
         nameEn: p.nameEn,
         slug: p.slug,
+        origin: p.origin ?? null,
         category: p.category,
         unit: p.unit,
         value: p.value,

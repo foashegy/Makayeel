@@ -49,6 +49,8 @@ export async function POST(req: Request) {
   const existing = await prisma.price.findMany({
     where: {
       date,
+      origin: null,
+      archivedAt: null,
       commodityId: { in: [...commodityMap.values()] },
       sourceId: { in: [...sourceMap.values()] },
     },
@@ -64,19 +66,22 @@ export async function POST(req: Request) {
       const commodityId = commodityMap.get(p.commoditySlug);
       const sourceId = sourceMap.get(p.sourceSlug);
       if (!commodityId || !sourceId) return null;
-      return prisma.price.upsert({
-        where: {
-          commodityId_sourceId_date: { commodityId, sourceId, date },
-        },
-        create: {
-          commodityId,
-          sourceId,
-          date,
-          value: p.value.toFixed(2),
-          enteredById: session.user!.id,
-        },
-        update: { value: p.value.toFixed(2), enteredById: session.user!.id },
-      });
+      const existingId = existingMap.get(`${commodityId}:${sourceId}`)?.id;
+      return existingId
+        ? prisma.price.update({
+            where: { id: existingId },
+            data: { value: p.value.toFixed(2), enteredById: session.user!.id },
+          })
+        : prisma.price.create({
+            data: {
+              commodityId,
+              sourceId,
+              date,
+              origin: null,
+              value: p.value.toFixed(2),
+              enteredById: session.user!.id,
+            },
+          });
     })
     .filter((op): op is NonNullable<typeof op> => op !== null);
 

@@ -78,28 +78,35 @@ async function main() {
       },
     });
 
-    // 3) Price (upsert by commodity×source×date)
-    await prisma.price.upsert({
+    // 3) Price (upsert by commodity×source×date×origin)
+    const existingPrice = await prisma.price.findFirst({
       where: {
-        commodityId_sourceId_date: {
-          commodityId: commodity.id,
-          sourceId: source.id,
-          date,
-        },
-      },
-      create: {
         commodityId: commodity.id,
         sourceId: source.id,
         date,
-        value: p.price,
-        currency: 'EGP',
-        notes: 'Baraka factory list price',
+        origin: null,
+        archivedAt: null,
       },
-      update: {
-        value: p.price,
-        notes: 'Baraka factory list price',
-      },
+      select: { id: true },
     });
+    if (existingPrice) {
+      await prisma.price.update({
+        where: { id: existingPrice.id },
+        data: { value: p.price, notes: 'Baraka factory list price' },
+      });
+    } else {
+      await prisma.price.create({
+        data: {
+          commodityId: commodity.id,
+          sourceId: source.id,
+          date,
+          value: p.price,
+          currency: 'EGP',
+          origin: null,
+          notes: 'Baraka factory list price',
+        },
+      });
+    }
 
     console.log(`  ${p.slug}: ${p.price.toLocaleString('en-US')} EGP/ton`);
   }

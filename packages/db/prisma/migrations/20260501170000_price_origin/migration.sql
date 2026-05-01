@@ -1,0 +1,17 @@
+-- Add origin to Price + adjust unique constraint:
+--   1. Include `origin` in the key so AR/BR/UA/local variants don't collide.
+--   2. Make the unique a PARTIAL index over `archivedAt IS NULL` so archived
+--      rows (kept for audit) don't conflict with live ones at the same key —
+--      important for the legacy-commodity unification, which archives losers
+--      after repointing them to the canonical commodity.
+--   3. NULLS NOT DISTINCT so origin=NULL collides with origin=NULL on live
+--      rows (otherwise scrapers could double-write).
+
+ALTER TABLE "Price" ADD COLUMN "origin" TEXT;
+
+ALTER TABLE "Price" DROP CONSTRAINT "Price_commodityId_sourceId_date_key";
+
+CREATE UNIQUE INDEX "Price_commodityId_sourceId_date_origin_key"
+  ON "Price" ("commodityId", "sourceId", "date", "origin")
+  NULLS NOT DISTINCT
+  WHERE "archivedAt" IS NULL;
