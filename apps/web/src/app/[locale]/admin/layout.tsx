@@ -47,6 +47,9 @@ export default async function AdminLayout({
             <Link href={`/${locale}/admin/users`} className="text-sm hover:text-wheat-gold">
               {t('usersTitle')}
             </Link>
+            <Link href={`/${locale}/admin/agent`} className="text-sm hover:text-wheat-gold">
+              {locale === 'ar' ? 'الايجنت' : 'Agent'}
+            </Link>
           </nav>
           <div className="flex items-center gap-2">
             <LangToggle current={locale} />
