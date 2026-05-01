@@ -9,7 +9,9 @@
 
 ALTER TABLE "Price" ADD COLUMN "origin" TEXT;
 
-ALTER TABLE "Price" DROP CONSTRAINT "Price_commodityId_sourceId_date_key";
+-- The original key was created as a unique INDEX (not a CONSTRAINT) in
+-- 20260418140057_init, so drop the index instead of the constraint.
+DROP INDEX "Price_commodityId_sourceId_date_key";
 
 CREATE UNIQUE INDEX "Price_commodityId_sourceId_date_origin_key"
   ON "Price" ("commodityId", "sourceId", "date", "origin")
