@@ -13,7 +13,9 @@ ALTER TABLE "Price" ADD COLUMN "origin" TEXT;
 -- 20260418140057_init, so drop the index instead of the constraint.
 DROP INDEX "Price_commodityId_sourceId_date_key";
 
+-- Use COALESCE-based functional index instead of `NULLS NOT DISTINCT` so this
+-- works on PG 11+ (Neon may pin older versions). Treats origin=NULL as the
+-- literal '__null__', so two rows with origin=NULL on the same key do collide.
 CREATE UNIQUE INDEX "Price_commodityId_sourceId_date_origin_key"
-  ON "Price" ("commodityId", "sourceId", "date", "origin")
-  NULLS NOT DISTINCT
+  ON "Price" ("commodityId", "sourceId", "date", (COALESCE("origin", '__null__')))
   WHERE "archivedAt" IS NULL;
