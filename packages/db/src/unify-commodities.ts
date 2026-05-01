@@ -99,6 +99,19 @@ export async function unifyCommodities(
     }
     const targetId = slugToId.get(target.slug);
     if (!targetId) {
+      // In dry mode the canonical hasn't actually been created yet (step 1 was
+      // a no-op). It WILL be created in live mode, so just count the prices
+      // that would migrate without simulating the conflict/repoint logic.
+      if (dry) {
+        const priceCount = await prisma.price.count({ where: { commodityId: c.id } });
+        const alertCount = await prisma.alert.count({ where: { commodityId: c.id } });
+        const watchCount = await prisma.watchlist.count({ where: { commodityId: c.id } });
+        report.pricesRepointed += priceCount;
+        report.alertsRepointed += alertCount;
+        report.watchlistsRepointed += watchCount;
+        report.legacyDeleted.push(c.slug);
+        continue;
+      }
       report.errors.push(`target ${target.slug} for ${c.slug} not in DB`);
       continue;
     }
