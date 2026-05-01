@@ -5,6 +5,7 @@ import { scrapeRawMaterials, scrapeCompoundFeeds } from '../lib/mazra3ty-scraper
 import { scrapeElmorshdRawMaterials, scrapeElmorshdCompoundFeeds } from '../lib/elmorshd-scraper';
 import { scrapeBarakaRawMaterials, scrapeBarakaCompoundFeeds } from '../lib/baraka-scraper';
 import { scrapeEsraatradeRawMaterials, scrapeEsraatradeCompoundFeeds } from '../lib/esraatrade-scraper';
+import { scrapeGlobalCmeFutures, scrapeGlobalCmeCompoundFeeds } from '../lib/global-cme-scraper';
 import { ensureSource, upsertScrapedProducts } from '../lib/queries';
 import type { ScrapedProduct } from '../lib/mazra3ty-scraper';
 
@@ -21,6 +22,7 @@ export interface ScrapeRunReport {
   elmorshd: { raw: SiteResult; feed: SiteResult };
   baraka: { raw: SiteResult; feed: SiteResult };
   esraatrade: { raw: SiteResult; feed: SiteResult };
+  globalCme: { raw: SiteResult; feed: SiteResult };
 }
 
 interface SiteConfig {
@@ -66,6 +68,14 @@ const SITES: SiteConfig[] = [
     type: 'WHOLESALER',
     scrapeRaw: scrapeEsraatradeRawMaterials,
     scrapeFeed: scrapeEsraatradeCompoundFeeds,
+  },
+  {
+    slug: 'global-cme',
+    nameAr: 'البورصة العالمية',
+    nameEn: 'CME / Global Futures',
+    type: 'EXCHANGE',
+    scrapeRaw: scrapeGlobalCmeFutures,
+    scrapeFeed: scrapeGlobalCmeCompoundFeeds,
   },
 ];
 
@@ -137,6 +147,7 @@ export async function runMazra3tyScrape(trigger: 'cron' | 'manual' = 'manual'): 
     elmorshd: { raw: empty(), feed: empty() },
     baraka: { raw: empty(), feed: empty() },
     esraatrade: { raw: empty(), feed: empty() },
+    globalCme: { raw: empty(), feed: empty() },
   };
 
   for (const site of SITES) {
@@ -150,6 +161,7 @@ export async function runMazra3tyScrape(trigger: 'cron' | 'manual' = 'manual'): 
     else if (site.slug === 'elmorshd') report.elmorshd = { raw, feed };
     else if (site.slug === 'baraka-feed') report.baraka = { raw, feed };
     else if (site.slug === 'esraatrade') report.esraatrade = { raw, feed };
+    else if (site.slug === 'global-cme') report.globalCme = { raw, feed };
   }
 
   return report;
@@ -181,6 +193,8 @@ export async function runMazra3tyScrapeAndNotify(bot: Bot<BotContext>) {
   lines.push(...formatSiteLine('بركة للأعلاف', report.baraka));
   lines.push('');
   lines.push(...formatSiteLine('إسراء تريد', report.esraatrade));
+  lines.push('');
+  lines.push(...formatSiteLine('البورصة العالمية (CME)', report.globalCme));
 
   try {
     await bot.api.sendMessage(ADMIN_ID, lines.join('\n'), { parse_mode: 'Markdown' });
