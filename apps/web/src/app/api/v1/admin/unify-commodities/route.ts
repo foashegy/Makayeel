@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { prisma, unifyCommodities } from '@makayeel/db';
 import { auth } from '@/auth';
 import { jsonOk, jsonError } from '@/lib/api-auth';
@@ -19,9 +20,14 @@ export const maxDuration = 300; // up to 5 minutes — large datasets take time
  */
 export async function POST(req: Request) {
   const adminKey = process.env.ADMIN_API_KEY;
-  const auth_header = req.headers.get('authorization') ?? '';
-  const bearerOk =
-    adminKey && auth_header === `Bearer ${adminKey}` && adminKey.length >= 16;
+  const authHeader = req.headers.get('authorization') ?? '';
+  let bearerOk = false;
+  if (adminKey && adminKey.length >= 16) {
+    const expected = `Bearer ${adminKey}`;
+    if (authHeader.length === expected.length) {
+      bearerOk = timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected));
+    }
+  }
 
   if (!bearerOk) {
     const session = await auth();
