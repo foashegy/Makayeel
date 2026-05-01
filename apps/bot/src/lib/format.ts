@@ -1,10 +1,11 @@
 import type { Locale } from '@makayeel/i18n';
 import { formatInTimeZone } from 'date-fns-tz';
 
-export function fmtNum(n: number, locale: Locale): string {
-  return new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-US', {
-    maximumFractionDigits: 0,
-  }).format(n);
+export function fmtNum(n: number, _locale?: Locale): string {
+  // Force Western digits on both locales — feed-mill operators read prices in
+  // Western digits universally (matches WhatsApp norms). Locale only affects
+  // currency suffix and dates elsewhere.
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
 }
 
 export function fmtTime(d: Date, locale: Locale): string {

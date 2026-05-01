@@ -110,7 +110,7 @@ export async function alertCallbackHandler(ctx: BotContext) {
   });
   await ctx.editMessageText(
     locale === 'ar'
-      ? `✅ اتحفظ تنبيه ${commodity.nameAr} عند ${threshold.toLocaleString('ar-EG')}.`
+      ? `✅ اتحفظ تنبيه ${commodity.nameAr} عند ${threshold.toLocaleString('en-US')}.`
       : `✅ Alert saved for ${commodity.nameEn} at ${threshold.toLocaleString('en-US')}.`,
   );
 }
@@ -143,7 +143,7 @@ export async function listAlertsHandler(ctx: BotContext) {
       `🗑 ${name.slice(0, 20)}`,
       `delalert:${a.id}`,
     ).row();
-    return `• ${name} ${arrow} ${Number(a.threshold).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US')}`;
+    return `• ${name} ${arrow} ${Number(a.threshold).toLocaleString('en-US')}`;
   });
 
   await ctx.reply(
