@@ -35,30 +35,40 @@ export async function getCommoditySnapshot(
   const commodity = await prisma.commodity.findUnique({ where: { slug: commoditySlug } });
   if (!commodity) return null;
   const today = cairoToday();
-  const yesterday = cairoDaysAgo(1);
 
-  // Prefer Alexandria Port; fall back to most recent today across any source.
-  const todayRow = await prisma.price.findFirst({
-    where: { commodityId: commodity.id, date: today, archivedAt: null },
+  // Same per-commodity fallback as the web: look back 14 days and pick the
+  // most recent price for this commodity. Bot users were getting "no price
+  // for today" any morning before the 06:00 cron fired.
+  const latest = await prisma.price.findFirst({
+    where: {
+      commodityId: commodity.id,
+      archivedAt: null,
+      date: { gte: cairoDaysAgo(14), lte: today },
+    },
     include: { source: true },
-    orderBy: [
-      { source: { slug: 'asc' } },
-      { updatedAt: 'desc' },
-    ],
+    orderBy: [{ date: 'desc' }, { source: { slug: 'asc' } }, { updatedAt: 'desc' }],
   });
-  if (!todayRow) return null;
+  if (!latest) return null;
 
-  const yRow = await prisma.price.findFirst({
-    where: { commodityId: commodity.id, sourceId: todayRow.sourceId, date: yesterday, archivedAt: null },
+  // Previous reading on the same source/commodity for delta. Skip the latest
+  // by date < latest.date so we always get a real prior reading.
+  const prev = await prisma.price.findFirst({
+    where: {
+      commodityId: commodity.id,
+      sourceId: latest.sourceId,
+      archivedAt: null,
+      date: { lt: latest.date, gte: cairoDaysAgo(30) },
+    },
+    orderBy: { date: 'desc' },
   });
 
   return {
     commodity,
-    current: Number(todayRow.value),
-    previous: yRow ? Number(yRow.value) : null,
-    sourceAr: todayRow.source.nameAr,
-    sourceEn: todayRow.source.nameEn,
-    date: todayRow.createdAt,
+    current: Number(latest.value),
+    previous: prev ? Number(prev.value) : null,
+    sourceAr: latest.source.nameAr,
+    sourceEn: latest.source.nameEn,
+    date: latest.date,
   };
 }
 
