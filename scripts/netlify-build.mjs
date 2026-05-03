@@ -18,7 +18,7 @@ const steps = [
 // Mark the affected migration as rolled-back so the now-idempotent SQL re-runs.
 // `migrate resolve` errors if the migration is in any other state — that's
 // fine, we just swallow it.
-const RECOVER_MIGRATIONS = ['20260501170000_price_origin'];
+const RECOVER_MIGRATIONS = ['20260501170000_price_origin', '20260503060000_livestock_poultry_eggs'];
 for (const m of RECOVER_MIGRATIONS) {
   steps.push(
     `pnpm --filter @makayeel/db exec prisma migrate resolve --rolled-back ${m} || echo "[netlify-build] ${m} not in failed state, continuing"`,

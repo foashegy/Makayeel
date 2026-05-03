@@ -2,12 +2,12 @@ import type { Bot } from 'grammy';
 import type { BotContext } from '../lib/locale';
 import { prisma } from '@makayeel/db';
 import { scrapeRawMaterials, scrapeCompoundFeeds } from '../lib/mazra3ty-scraper';
-import { scrapeElmorshdRawMaterials, scrapeElmorshdCompoundFeeds } from '../lib/elmorshd-scraper';
+import { scrapeElmorshdRawMaterials, scrapeElmorshdCompoundFeeds, scrapeElmorshdLivePoultry, scrapeElmorshdEggs } from '../lib/elmorshd-scraper';
 import { scrapeBarakaRawMaterials, scrapeBarakaCompoundFeeds } from '../lib/baraka-scraper';
 import { scrapeEsraatradeRawMaterials, scrapeEsraatradeCompoundFeeds } from '../lib/esraatrade-scraper';
 import { scrapeGlobalCmeFutures, scrapeGlobalCmeCompoundFeeds } from '../lib/global-cme-scraper';
 import { ensureSource, upsertScrapedProducts } from '../lib/queries';
-import type { ScrapedProduct } from '../lib/mazra3ty-scraper';
+import type { ScrapedProduct, PageHint } from '../lib/mazra3ty-scraper';
 
 const ADMIN_ID = process.env.ADMIN_TELEGRAM_ID;
 
@@ -19,11 +19,13 @@ export interface SiteResult {
 
 export interface ScrapeRunReport {
   mazra3ty: { raw: SiteResult; feed: SiteResult };
-  elmorshd: { raw: SiteResult; feed: SiteResult };
+  elmorshd: { raw: SiteResult; feed: SiteResult; livePoultry?: SiteResult; eggs?: SiteResult };
   baraka: { raw: SiteResult; feed: SiteResult };
   esraatrade: { raw: SiteResult; feed: SiteResult };
   globalCme: { raw: SiteResult; feed: SiteResult };
 }
+
+type Scrape = () => Promise<{ products: ScrapedProduct[]; pageDate?: string | null }>;
 
 interface SiteConfig {
   slug: string;
@@ -32,8 +34,10 @@ interface SiteConfig {
   /** Source type to register the source under. Aggregator boards = EXCHANGE,
    * direct mill price pages = FACTORY, retailers = WHOLESALER. */
   type: 'EXCHANGE' | 'FACTORY' | 'WHOLESALER';
-  scrapeRaw: () => Promise<{ products: ScrapedProduct[]; pageDate?: string | null }>;
-  scrapeFeed: () => Promise<{ products: ScrapedProduct[]; pageDate?: string | null }>;
+  scrapeRaw: Scrape;
+  scrapeFeed: Scrape;
+  scrapeLivePoultry?: Scrape;
+  scrapeEggs?: Scrape;
 }
 
 const SITES: SiteConfig[] = [
@@ -52,6 +56,8 @@ const SITES: SiteConfig[] = [
     type: 'EXCHANGE',
     scrapeRaw: scrapeElmorshdRawMaterials,
     scrapeFeed: scrapeElmorshdCompoundFeeds,
+    scrapeLivePoultry: scrapeElmorshdLivePoultry,
+    scrapeEggs: scrapeElmorshdEggs,
   },
   {
     slug: 'baraka-feed',
@@ -81,9 +87,9 @@ const SITES: SiteConfig[] = [
 
 async function runOne(
   source: { id: string; slug: string },
-  scrape: () => Promise<{ products: ScrapedProduct[]; pageDate?: string | null }>,
+  scrape: Scrape,
   refLabel: string,
-  pageHint: 'raw_materials' | 'compound_feeds',
+  pageHint: PageHint,
   trigger: 'cron' | 'manual',
 ): Promise<SiteResult> {
   const startedAt = new Date();
@@ -154,12 +160,21 @@ export async function runMazra3tyScrape(trigger: 'cron' | 'manual' = 'manual'): 
   for (const site of SITES) {
     const source = await ensureSource(site.slug, site.nameAr, site.nameEn, site.type);
     const sourceWithSlug = { id: source.id, slug: site.slug };
-    const [raw, feed] = await Promise.all([
+    const baseJobs: Promise<SiteResult>[] = [
       runOne(sourceWithSlug, site.scrapeRaw, `${site.slug} raw`, 'raw_materials', trigger),
       runOne(sourceWithSlug, site.scrapeFeed, `${site.slug} feed`, 'compound_feeds', trigger),
-    ]);
+    ];
+    if (site.scrapeLivePoultry) {
+      baseJobs.push(runOne(sourceWithSlug, site.scrapeLivePoultry, `${site.slug} live-poultry`, 'live_poultry', trigger));
+    }
+    if (site.scrapeEggs) {
+      baseJobs.push(runOne(sourceWithSlug, site.scrapeEggs, `${site.slug} eggs`, 'eggs', trigger));
+    }
+    const results = await Promise.all(baseJobs);
+    const [raw, feed, livePoultry, eggs] = results;
+
     if (site.slug === 'mazra3ty') report.mazra3ty = { raw, feed };
-    else if (site.slug === 'elmorshd') report.elmorshd = { raw, feed };
+    else if (site.slug === 'elmorshd') report.elmorshd = { raw, feed, livePoultry, eggs };
     else if (site.slug === 'baraka-feed') report.baraka = { raw, feed };
     else if (site.slug === 'esraatrade') report.esraatrade = { raw, feed };
     else if (site.slug === 'global-cme') report.globalCme = { raw, feed };
@@ -168,11 +183,17 @@ export async function runMazra3tyScrape(trigger: 'cron' | 'manual' = 'manual'): 
   return report;
 }
 
-function formatSiteLine(label: string, result: { raw: SiteResult; feed: SiteResult }): string[] {
+function formatSiteLine(label: string, result: { raw: SiteResult; feed: SiteResult; livePoultry?: SiteResult; eggs?: SiteResult }): string[] {
   const lines = [`*${label}*`];
   lines.push(`  🌽 خامات: ${result.raw.written}${result.raw.created.length > 0 ? ` (+${result.raw.created.length} جديد)` : ''}`);
   lines.push(`  🐔 أعلاف: ${result.feed.written}${result.feed.created.length > 0 ? ` (+${result.feed.created.length} جديد)` : ''}`);
-  const errs = [...result.raw.errors, ...result.feed.errors];
+  if (result.livePoultry) {
+    lines.push(`  🐓 فراخ حية: ${result.livePoultry.written}${result.livePoultry.created.length > 0 ? ` (+${result.livePoultry.created.length} جديد)` : ''}`);
+  }
+  if (result.eggs) {
+    lines.push(`  🥚 بيض: ${result.eggs.written}${result.eggs.created.length > 0 ? ` (+${result.eggs.created.length} جديد)` : ''}`);
+  }
+  const errs = [...result.raw.errors, ...result.feed.errors, ...(result.livePoultry?.errors ?? []), ...(result.eggs?.errors ?? [])];
   if (errs.length > 0) lines.push(`  ⚠️ ${errs.join(' | ')}`);
   return lines;
 }

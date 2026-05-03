@@ -17,6 +17,8 @@ const CATEGORY_FILTERS: { key: string; value: CommodityCategory | null }[] = [
   { key: 'grains', value: 'GRAINS' },
   { key: 'proteins', value: 'PROTEINS' },
   { key: 'byproducts', value: 'BYPRODUCTS' },
+  { key: 'poultry', value: 'POULTRY' },
+  { key: 'eggs', value: 'EGGS' },
 ];
 
 export default async function PricesPage({

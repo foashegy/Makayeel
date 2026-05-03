@@ -11,11 +11,12 @@ const CANONICAL_SLUG_MENU = CANONICAL_COMMODITIES
   .map((c) => `  - ${c.slug}: ${c.nameAr} | ${c.nameEn} (${c.category})`)
   .join('\n');
 
-// Hard sanity bounds — Egyptian feed prices in EGP/ton sit roughly in
-// [3,000 ; 100,000]. Anything outside this is almost certainly OCR noise or
-// a prompt-injection attempt. We use a wider [100 ; 200,000] safety net.
-const MIN_PRICE = 100;
-const MAX_PRICE = 200_000;
+// Hard sanity bounds. Feed/raw EGP/ton sits in [3K, 100K]; live broiler
+// EGP/kg in [50, 250]; chicks EGP/chick in [3, 50]; egg cartons EGP in
+// [60, 250]. Use a wide [1, 500K] safety net — Zod just guards against
+// OCR noise / injection, the prompt+canonical menu enforce sane mapping.
+const MIN_PRICE = 1;
+const MAX_PRICE = 500_000;
 const MAX_PRODUCTS_PER_PAGE = 60;
 
 const ScrapedProductSchema = z.object({
@@ -24,7 +25,7 @@ const ScrapedProductSchema = z.object({
   // Slug must be 3–60 chars of [a-z0-9-]; rejects anything weird.
   slug: z.string().regex(/^[a-z][a-z0-9-]{1,58}[a-z0-9]$/, 'invalid slug'),
   origin: z.enum(['AR', 'BR', 'UA', 'US', 'RU', 'local']).nullable().optional(),
-  category: z.enum(['GRAINS', 'PROTEINS', 'BYPRODUCTS', 'ADDITIVES', 'OILS', 'FINISHED_FEED']),
+  category: z.enum(['GRAINS', 'PROTEINS', 'BYPRODUCTS', 'ADDITIVES', 'OILS', 'FINISHED_FEED', 'LIVESTOCK', 'POULTRY', 'EGGS']),
   unit: z.string().max(20).default('EGP/ton'),
   value: z.number().min(MIN_PRICE).max(MAX_PRICE),
   date: z.string().nullable().optional(),
@@ -76,15 +77,25 @@ async function fetchPage(filter: 7 | 8): Promise<string> {
   return stripHtml(await res.text());
 }
 
+export type PageHint = 'raw_materials' | 'compound_feeds' | 'live_poultry' | 'eggs';
+
 export async function extractFromHtml(
   html: string,
-  pageHint: 'raw_materials' | 'compound_feeds',
+  pageHint: PageHint,
   siteName = 'mazra3ty.com',
 ): Promise<ScrapeResult> {
-  const categoryHint =
-    pageHint === 'raw_materials'
-      ? 'الفئة (category) ممكن تكون: GRAINS (ذرة، شعير، قمح)، PROTEINS (كسب صويا، جلوتين)، BYPRODUCTS (ردة، كسر أرز)، OILS (زيت صويا، زيت ذرة).'
-      : 'الفئة (category) لازم تكون FINISHED_FEED لكل منتج.';
+  const categoryHint = (() => {
+    switch (pageHint) {
+      case 'raw_materials':
+        return 'الفئة (category) ممكن تكون: GRAINS (ذرة، شعير، قمح)، PROTEINS (كسب صويا، جلوتين)، BYPRODUCTS (ردة، كسر أرز)، OILS (زيت صويا، زيت ذرة). الوحدة (unit) "EGP/ton".';
+      case 'compound_feeds':
+        return 'الفئة (category) لازم تكون FINISHED_FEED لكل منتج. الوحدة (unit) "EGP/ton".';
+      case 'live_poultry':
+        return 'الفئة (category) لازم تكون POULTRY لكل منتج (فراخ بيضاء/ساسو/بلدي حية، كتاكيت). الوحدة (unit) "EGP/kg" للفراخ الحية، "EGP/chick" للكتاكيت. **استخرج فقط منتجات بورصة الدواجن/الكتاكيت** — تجاهل أي أعلاف أو خامات.';
+      case 'eggs':
+        return 'الفئة (category) لازم تكون EGGS لكل منتج (كرتونة بيض أبيض/أحمر/بلدي). الوحدة (unit) "EGP/carton". **السعر هو سعر الكرتونة كاملة (30 بيضة)** — لو الموقع كاتب سعر البيضة الواحدة ضرب في 30. استخرج فقط أسعار البيض.';
+    }
+  })();
 
   const systemPrompt = `أنت مساعد لاستخراج جدول أسعار من HTML لموقع ${siteName} المصري.
 

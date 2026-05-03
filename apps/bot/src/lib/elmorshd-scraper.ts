@@ -3,6 +3,8 @@ import { stripHtml, extractFromHtml, type ScrapeResult } from './mazra3ty-scrape
 const URLS = {
   raw: 'https://elmorshdledwagn.com/prices/l1',
   feed: 'https://elmorshdledwagn.com/prices/2',
+  livePoultry: 'https://elmorshdledwagn.com/prices/l2',
+  eggs: 'https://elmorshdledwagn.com/prices/5',
 };
 
 async function fetchPage(url: string): Promise<string> {
@@ -21,4 +23,14 @@ export async function scrapeElmorshdRawMaterials(): Promise<ScrapeResult> {
 export async function scrapeElmorshdCompoundFeeds(): Promise<ScrapeResult> {
   const html = await fetchPage(URLS.feed);
   return extractFromHtml(html, 'compound_feeds', 'elmorshdledwagn.com');
+}
+
+export async function scrapeElmorshdLivePoultry(): Promise<ScrapeResult> {
+  const html = await fetchPage(URLS.livePoultry);
+  return extractFromHtml(html, 'live_poultry', 'elmorshdledwagn.com');
+}
+
+export async function scrapeElmorshdEggs(): Promise<ScrapeResult> {
+  const html = await fetchPage(URLS.eggs);
+  return extractFromHtml(html, 'eggs', 'elmorshdledwagn.com');
 }

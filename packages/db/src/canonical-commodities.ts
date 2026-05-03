@@ -15,6 +15,7 @@ export type CanonicalCommodity = {
   category: CommodityCategory;
   iconKey: string;
   displayOrder: number;
+  unit?: string; // defaults to "EGP/ton" if omitted
 };
 
 export const CANONICAL_COMMODITIES: CanonicalCommodity[] = [
@@ -45,6 +46,20 @@ export const CANONICAL_COMMODITIES: CanonicalCommodity[] = [
   { slug: 'fattening-starter-24',  nameAr: 'بادئ تسمين 24%',  nameEn: 'Fattening Starter 24%',  category: CommodityCategory.FINISHED_FEED, iconKey: 'feed', displayOrder: 41 },
   { slug: 'fattening-grower-21',   nameAr: 'نامي تسمين 21%',  nameEn: 'Fattening Grower 21%',   category: CommodityCategory.FINISHED_FEED, iconKey: 'feed', displayOrder: 42 },
   { slug: 'fattening-finisher-19', nameAr: 'ناهي تسمين 19%',  nameEn: 'Fattening Finisher 19%', category: CommodityCategory.FINISHED_FEED, iconKey: 'feed', displayOrder: 43 },
+
+  // Live poultry (EGP/kg)
+  { slug: 'live-broiler-white',  nameAr: 'فراخ بيضاء حية',   nameEn: 'Live White Broiler',   category: CommodityCategory.POULTRY,   iconKey: 'chicken', displayOrder: 50, unit: 'EGP/kg' },
+  { slug: 'live-broiler-sasso',  nameAr: 'فراخ ساسو حية',    nameEn: 'Live Sasso Broiler',   category: CommodityCategory.POULTRY,   iconKey: 'chicken', displayOrder: 51, unit: 'EGP/kg' },
+  { slug: 'live-broiler-baladi', nameAr: 'فراخ بلدي حية',    nameEn: 'Live Baladi Broiler',  category: CommodityCategory.POULTRY,   iconKey: 'chicken', displayOrder: 52, unit: 'EGP/kg' },
+
+  // Chicks (EGP/chick)
+  { slug: 'chick-white',  nameAr: 'كتكوت أبيض',  nameEn: 'White Chick',  category: CommodityCategory.POULTRY, iconKey: 'chick', displayOrder: 53, unit: 'EGP/chick' },
+  { slug: 'chick-sasso',  nameAr: 'كتكوت ساسو',  nameEn: 'Sasso Chick',  category: CommodityCategory.POULTRY, iconKey: 'chick', displayOrder: 54, unit: 'EGP/chick' },
+
+  // Eggs
+  { slug: 'eggs-white-carton', nameAr: 'كرتونة بيض أبيض', nameEn: 'White Eggs (Carton)', category: CommodityCategory.EGGS, iconKey: 'egg', displayOrder: 60, unit: 'EGP/carton' },
+  { slug: 'eggs-red-carton',   nameAr: 'كرتونة بيض أحمر',  nameEn: 'Red Eggs (Carton)',   category: CommodityCategory.EGGS, iconKey: 'egg', displayOrder: 61, unit: 'EGP/carton' },
+  { slug: 'eggs-baladi-carton',nameAr: 'كرتونة بيض بلدي',  nameEn: 'Baladi Eggs (Carton)',category: CommodityCategory.EGGS, iconKey: 'egg', displayOrder: 62, unit: 'EGP/carton' },
 ];
 
 /**

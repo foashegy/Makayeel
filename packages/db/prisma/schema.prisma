@@ -118,6 +118,9 @@ enum CommodityCategory {
   ADDITIVES
   OILS
   FINISHED_FEED
+  LIVESTOCK
+  POULTRY
+  EGGS
 }
 
 model Commodity {
