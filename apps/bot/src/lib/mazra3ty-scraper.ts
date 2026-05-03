@@ -37,6 +37,27 @@ const ScrapeResultSchema = z.object({
 export type ScrapedProduct = z.infer<typeof ScrapedProductSchema>;
 export type ScrapeResult = z.infer<typeof ScrapeResultSchema>;
 
+function extractFirstJsonObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (escape) { escape = false; continue; }
+    if (c === '\\') { escape = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (c === '{') depth++;
+    else if (c === '}') {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 export function stripHtml(html: string): string {
   return html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
@@ -136,9 +157,18 @@ ${CANONICAL_SLUG_MENU}
   let raw: unknown;
   try {
     raw = JSON.parse(cleaned);
-  } catch (err) {
-    console.warn(`[scraper:${siteName}] Claude returned non-JSON, treating as empty:`, (err as Error).message);
-    return { products: [], pageDate: null };
+  } catch {
+    const salvaged = extractFirstJsonObject(cleaned);
+    if (salvaged) {
+      try { raw = JSON.parse(salvaged); }
+      catch (err2) {
+        console.warn(`[scraper:${siteName}] Claude returned non-JSON even after salvage, treating as empty:`, (err2 as Error).message);
+        return { products: [], pageDate: null };
+      }
+    } else {
+      console.warn(`[scraper:${siteName}] Claude returned no JSON object, treating as empty`);
+      return { products: [], pageDate: null };
+    }
   }
   const parsed = ScrapeResultSchema.safeParse(raw);
   if (!parsed.success) {
