@@ -68,7 +68,7 @@ export function stripHtml(html: string): string {
     .slice(0, 50_000);
 }
 
-async function fetchPage(filter: 7 | 8): Promise<string> {
+async function fetchPage(filter: 7 | 8 | 9): Promise<string> {
   const url = `https://mazra3ty.com/boursa-company-list?filter=${filter}`;
   const res = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (Makayeel-Bot scraper)' },
@@ -77,7 +77,7 @@ async function fetchPage(filter: 7 | 8): Promise<string> {
   return stripHtml(await res.text());
 }
 
-export type PageHint = 'raw_materials' | 'compound_feeds' | 'live_poultry' | 'eggs';
+export type PageHint = 'raw_materials' | 'compound_feeds' | 'live_poultry' | 'eggs' | 'livestock';
 
 export async function extractFromHtml(
   html: string,
@@ -94,6 +94,8 @@ export async function extractFromHtml(
         return 'الفئة (category) لازم تكون POULTRY لكل منتج (فراخ بيضاء/ساسو/بلدي حية، كتاكيت). الوحدة (unit) "EGP/kg" للفراخ الحية، "EGP/chick" للكتاكيت. **استخرج فقط منتجات بورصة الدواجن/الكتاكيت** — تجاهل أي أعلاف أو خامات.';
       case 'eggs':
         return 'الفئة (category) لازم تكون EGGS لكل منتج (كرتونة بيض أبيض/أحمر/بلدي). الوحدة (unit) "EGP/carton". **السعر هو سعر الكرتونة كاملة (30 بيضة)** — لو الموقع كاتب سعر البيضة الواحدة ضرب في 30. استخرج فقط أسعار البيض.';
+      case 'livestock':
+        return 'الصفحة دي فيها لحوم حية ودواجن مخلوطين. الوحدة دائماً "EGP/kg" (سعر القائم). الفئات المسموحة:\n  - LIVESTOCK للماشية الحية: live-cattle (بقري قائم), live-buffalo (جاموسي قائم), live-sheep (ضاني قائم).\n  - POULTRY للفراخ الحية: live-broiler-white (دواجن أبيض), live-broiler-sasso (دواجن ساسو), live-broiler-baladi (دواجن بلدي).\n**استخرج كل المنتجات اللي تنتمي لإحدى الفئتين.** تجاهل الكتاكيت والبيض والأعلاف.';
     }
   })();
 
@@ -205,4 +207,9 @@ export async function scrapeRawMaterials(): Promise<ScrapeResult> {
 export async function scrapeCompoundFeeds(): Promise<ScrapeResult> {
   const html = await fetchPage(7);
   return extractFromHtml(html, 'compound_feeds');
+}
+
+export async function scrapeLivestockPoultry(): Promise<ScrapeResult> {
+  const html = await fetchPage(9);
+  return extractFromHtml(html, 'livestock');
 }

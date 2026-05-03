@@ -22,6 +22,7 @@ const RECOVER_MIGRATIONS = [
   '20260501170000_price_origin',
   '20260503060000_livestock_poultry_eggs',
   '20260503060100_seed_livestock_commodities',
+  '20260503070000_seed_livestock_meat',
 ];
 for (const m of RECOVER_MIGRATIONS) {
   steps.push(

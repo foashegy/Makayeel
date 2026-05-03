@@ -60,6 +60,11 @@ export const CANONICAL_COMMODITIES: CanonicalCommodity[] = [
   { slug: 'eggs-white-carton', nameAr: 'كرتونة بيض أبيض', nameEn: 'White Eggs (Carton)', category: CommodityCategory.EGGS, iconKey: 'egg', displayOrder: 60, unit: 'EGP/carton' },
   { slug: 'eggs-red-carton',   nameAr: 'كرتونة بيض أحمر',  nameEn: 'Red Eggs (Carton)',   category: CommodityCategory.EGGS, iconKey: 'egg', displayOrder: 61, unit: 'EGP/carton' },
   { slug: 'eggs-baladi-carton',nameAr: 'كرتونة بيض بلدي',  nameEn: 'Baladi Eggs (Carton)',category: CommodityCategory.EGGS, iconKey: 'egg', displayOrder: 62, unit: 'EGP/carton' },
+
+  // Live livestock (EGP/kg live weight = "قائم")
+  { slug: 'live-cattle',  nameAr: 'بقري قائم',   nameEn: 'Live Cattle (Beef)',  category: CommodityCategory.LIVESTOCK, iconKey: 'cow',     displayOrder: 70, unit: 'EGP/kg' },
+  { slug: 'live-buffalo', nameAr: 'جاموسي قائم', nameEn: 'Live Buffalo',         category: CommodityCategory.LIVESTOCK, iconKey: 'buffalo', displayOrder: 71, unit: 'EGP/kg' },
+  { slug: 'live-sheep',   nameAr: 'ضاني قائم',   nameEn: 'Live Sheep',           category: CommodityCategory.LIVESTOCK, iconKey: 'sheep',   displayOrder: 72, unit: 'EGP/kg' },
 ];
 
 /**

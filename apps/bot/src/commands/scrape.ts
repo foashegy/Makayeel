@@ -13,6 +13,7 @@ export async function scrapeHandler(ctx: BotContext) {
     const report = await runMazra3tyScrape();
     const totalWritten =
       report.mazra3ty.raw.written + report.mazra3ty.feed.written +
+      (report.mazra3ty.livestock?.written ?? 0) +
       report.elmorshd.raw.written + report.elmorshd.feed.written +
       (report.elmorshd.livePoultry?.written ?? 0) + (report.elmorshd.eggs?.written ?? 0) +
       report.baraka.raw.written + report.baraka.feed.written +
@@ -20,6 +21,7 @@ export async function scrapeHandler(ctx: BotContext) {
       report.globalCme.raw.written + report.globalCme.feed.written;
     const totalCreated =
       report.mazra3ty.raw.created.length + report.mazra3ty.feed.created.length +
+      (report.mazra3ty.livestock?.created.length ?? 0) +
       report.elmorshd.raw.created.length + report.elmorshd.feed.created.length +
       (report.elmorshd.livePoultry?.created.length ?? 0) + (report.elmorshd.eggs?.created.length ?? 0) +
       report.baraka.raw.created.length + report.baraka.feed.created.length +
@@ -27,6 +29,7 @@ export async function scrapeHandler(ctx: BotContext) {
       report.globalCme.raw.created.length + report.globalCme.feed.created.length;
     const allErrors = [
       ...report.mazra3ty.raw.errors, ...report.mazra3ty.feed.errors,
+      ...(report.mazra3ty.livestock?.errors ?? []),
       ...report.elmorshd.raw.errors, ...report.elmorshd.feed.errors,
       ...(report.elmorshd.livePoultry?.errors ?? []), ...(report.elmorshd.eggs?.errors ?? []),
       ...report.baraka.raw.errors, ...report.baraka.feed.errors,
@@ -38,6 +41,9 @@ export async function scrapeHandler(ctx: BotContext) {
     lines.push('*مزرعتي:*');
     lines.push(`  🌽 خامات: ${report.mazra3ty.raw.written}${report.mazra3ty.raw.created.length > 0 ? ` (+${report.mazra3ty.raw.created.length})` : ''}`);
     lines.push(`  🐔 أعلاف: ${report.mazra3ty.feed.written}${report.mazra3ty.feed.created.length > 0 ? ` (+${report.mazra3ty.feed.created.length})` : ''}`);
+    if (report.mazra3ty.livestock) {
+      lines.push(`  🐄 لحوم حية: ${report.mazra3ty.livestock.written}${report.mazra3ty.livestock.created.length > 0 ? ` (+${report.mazra3ty.livestock.created.length})` : ''}`);
+    }
     lines.push('');
     lines.push('*المرشد للدواجن:*');
     lines.push(`  🌽 خامات: ${report.elmorshd.raw.written}${report.elmorshd.raw.created.length > 0 ? ` (+${report.elmorshd.raw.created.length})` : ''}`);

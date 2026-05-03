@@ -68,7 +68,8 @@
       "additives": "Additives",
       "oils": "Oils",
       "poultry": "Live Poultry",
-      "eggs": "Eggs"
+      "eggs": "Eggs",
+      "livestock": "Live Livestock"
     },
     "noData": "No prices available today."
   },

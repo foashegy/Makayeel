@@ -1,7 +1,7 @@
 import type { Bot } from 'grammy';
 import type { BotContext } from '../lib/locale';
 import { prisma } from '@makayeel/db';
-import { scrapeRawMaterials, scrapeCompoundFeeds } from '../lib/mazra3ty-scraper';
+import { scrapeRawMaterials, scrapeCompoundFeeds, scrapeLivestockPoultry } from '../lib/mazra3ty-scraper';
 import { scrapeElmorshdRawMaterials, scrapeElmorshdCompoundFeeds, scrapeElmorshdLivePoultry, scrapeElmorshdEggs } from '../lib/elmorshd-scraper';
 import { scrapeBarakaRawMaterials, scrapeBarakaCompoundFeeds } from '../lib/baraka-scraper';
 import { scrapeEsraatradeRawMaterials, scrapeEsraatradeCompoundFeeds } from '../lib/esraatrade-scraper';
@@ -18,7 +18,7 @@ export interface SiteResult {
 }
 
 export interface ScrapeRunReport {
-  mazra3ty: { raw: SiteResult; feed: SiteResult };
+  mazra3ty: { raw: SiteResult; feed: SiteResult; livestock?: SiteResult };
   elmorshd: { raw: SiteResult; feed: SiteResult; livePoultry?: SiteResult; eggs?: SiteResult };
   baraka: { raw: SiteResult; feed: SiteResult };
   esraatrade: { raw: SiteResult; feed: SiteResult };
@@ -38,6 +38,7 @@ interface SiteConfig {
   scrapeFeed: Scrape;
   scrapeLivePoultry?: Scrape;
   scrapeEggs?: Scrape;
+  scrapeLivestock?: Scrape;
 }
 
 const SITES: SiteConfig[] = [
@@ -48,6 +49,7 @@ const SITES: SiteConfig[] = [
     type: 'EXCHANGE',
     scrapeRaw: scrapeRawMaterials,
     scrapeFeed: scrapeCompoundFeeds,
+    scrapeLivestock: scrapeLivestockPoultry,
   },
   {
     slug: 'elmorshd',
@@ -160,30 +162,35 @@ export async function runMazra3tyScrape(trigger: 'cron' | 'manual' = 'manual'): 
   for (const site of SITES) {
     const source = await ensureSource(site.slug, site.nameAr, site.nameEn, site.type);
     const sourceWithSlug = { id: source.id, slug: site.slug };
-    const baseJobs: Promise<SiteResult>[] = [
-      runOne(sourceWithSlug, site.scrapeRaw, `${site.slug} raw`, 'raw_materials', trigger),
-      runOne(sourceWithSlug, site.scrapeFeed, `${site.slug} feed`, 'compound_feeds', trigger),
+
+    const jobMap: { key: string; promise: Promise<SiteResult> }[] = [
+      { key: 'raw',  promise: runOne(sourceWithSlug, site.scrapeRaw,  `${site.slug} raw`,  'raw_materials',  trigger) },
+      { key: 'feed', promise: runOne(sourceWithSlug, site.scrapeFeed, `${site.slug} feed`, 'compound_feeds', trigger) },
     ];
     if (site.scrapeLivePoultry) {
-      baseJobs.push(runOne(sourceWithSlug, site.scrapeLivePoultry, `${site.slug} live-poultry`, 'live_poultry', trigger));
+      jobMap.push({ key: 'livePoultry', promise: runOne(sourceWithSlug, site.scrapeLivePoultry, `${site.slug} live-poultry`, 'live_poultry', trigger) });
     }
     if (site.scrapeEggs) {
-      baseJobs.push(runOne(sourceWithSlug, site.scrapeEggs, `${site.slug} eggs`, 'eggs', trigger));
+      jobMap.push({ key: 'eggs', promise: runOne(sourceWithSlug, site.scrapeEggs, `${site.slug} eggs`, 'eggs', trigger) });
     }
-    const results = await Promise.all(baseJobs);
-    const [raw, feed, livePoultry, eggs] = results;
+    if (site.scrapeLivestock) {
+      jobMap.push({ key: 'livestock', promise: runOne(sourceWithSlug, site.scrapeLivestock, `${site.slug} livestock`, 'livestock', trigger) });
+    }
+    const settled = await Promise.all(jobMap.map((j) => j.promise));
+    const r: Record<string, SiteResult> = {};
+    jobMap.forEach((j, i) => { r[j.key] = settled[i]; });
 
-    if (site.slug === 'mazra3ty') report.mazra3ty = { raw, feed };
-    else if (site.slug === 'elmorshd') report.elmorshd = { raw, feed, livePoultry, eggs };
-    else if (site.slug === 'baraka-feed') report.baraka = { raw, feed };
-    else if (site.slug === 'esraatrade') report.esraatrade = { raw, feed };
-    else if (site.slug === 'global-cme') report.globalCme = { raw, feed };
+    if (site.slug === 'mazra3ty') report.mazra3ty = { raw: r.raw, feed: r.feed, livestock: r.livestock };
+    else if (site.slug === 'elmorshd') report.elmorshd = { raw: r.raw, feed: r.feed, livePoultry: r.livePoultry, eggs: r.eggs };
+    else if (site.slug === 'baraka-feed') report.baraka = { raw: r.raw, feed: r.feed };
+    else if (site.slug === 'esraatrade') report.esraatrade = { raw: r.raw, feed: r.feed };
+    else if (site.slug === 'global-cme') report.globalCme = { raw: r.raw, feed: r.feed };
   }
 
   return report;
 }
 
-function formatSiteLine(label: string, result: { raw: SiteResult; feed: SiteResult; livePoultry?: SiteResult; eggs?: SiteResult }): string[] {
+function formatSiteLine(label: string, result: { raw: SiteResult; feed: SiteResult; livePoultry?: SiteResult; eggs?: SiteResult; livestock?: SiteResult }): string[] {
   const lines = [`*${label}*`];
   lines.push(`  🌽 خامات: ${result.raw.written}${result.raw.created.length > 0 ? ` (+${result.raw.created.length} جديد)` : ''}`);
   lines.push(`  🐔 أعلاف: ${result.feed.written}${result.feed.created.length > 0 ? ` (+${result.feed.created.length} جديد)` : ''}`);
@@ -193,7 +200,10 @@ function formatSiteLine(label: string, result: { raw: SiteResult; feed: SiteResu
   if (result.eggs) {
     lines.push(`  🥚 بيض: ${result.eggs.written}${result.eggs.created.length > 0 ? ` (+${result.eggs.created.length} جديد)` : ''}`);
   }
-  const errs = [...result.raw.errors, ...result.feed.errors, ...(result.livePoultry?.errors ?? []), ...(result.eggs?.errors ?? [])];
+  if (result.livestock) {
+    lines.push(`  🐄 لحوم حية: ${result.livestock.written}${result.livestock.created.length > 0 ? ` (+${result.livestock.created.length} جديد)` : ''}`);
+  }
+  const errs = [...result.raw.errors, ...result.feed.errors, ...(result.livePoultry?.errors ?? []), ...(result.eggs?.errors ?? []), ...(result.livestock?.errors ?? [])];
   if (errs.length > 0) lines.push(`  ⚠️ ${errs.join(' | ')}`);
   return lines;
 }

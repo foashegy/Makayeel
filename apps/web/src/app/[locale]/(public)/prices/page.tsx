@@ -19,6 +19,7 @@ const CATEGORY_FILTERS: { key: string; value: CommodityCategory | null }[] = [
   { key: 'byproducts', value: 'BYPRODUCTS' },
   { key: 'poultry', value: 'POULTRY' },
   { key: 'eggs', value: 'EGGS' },
+  { key: 'livestock', value: 'LIVESTOCK' },
 ];
 
 export default async function PricesPage({
